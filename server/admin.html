@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Mavericks Admin — Hackathon Control Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode:'class' };</script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{font-family:'Inter',sans-serif}
+    .glass{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08)}
+    .gradient-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5)}
+    .bar{transition:height 0.8s cubic-bezier(0.4,0,0.2,1)}
+    .fade{animation:fade 0.3s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .tab-btn.active{background:rgba(124,58,237,0.2);color:#a78bfa;border-color:rgba(124,58,237,0.4)}
+    .tab-btn{transition:all .2s}
+    .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600}
+    .blink{animation:blink 1.5s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    textarea,select,input{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#f1f5f9!important;border-radius:8px!important;padding:8px 12px}
+    textarea:focus,select:focus,input:focus{outline:none!important;border-color:rgba(124,58,237,0.6)!important}
+    select option{background:#1e1b4b;color:#f1f5f9}
+    summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+    .monaco{font-family:'Fira Code','Courier New',monospace;font-size:13px;line-height:1.6;tab-size:2}
+    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.3);border-radius:4px}
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<!-- ─── Header ─────────────────────────────────────────────────────────────── -->
+<header class="bg-gray-900/90 border-b border-white/10 px-6 py-3 sticky top-0 z-50 backdrop-blur">
+  <div class="max-w-screen-2xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl gradient-badge flex items-center justify-center shadow-lg shadow-violet-500/20">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <div>
+        <h1 class="font-bold text-base text-white leading-none">Mavericks Admin</h1>
+        <p class="text-[10px] text-gray-400">Hackathon Control Center</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="statusBadge" class="pill bg-gray-800 text-gray-400">⬤ Connecting</span>
+      <span class="text-xs text-gray-500 blink" id="lastUpdate"></span>
+      <a href="http://localhost:8080" target="_blank" class="text-xs bg-violet-700 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">→ User App</a>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Tab Navigation ─────────────────────────────────────────────────────── -->
+<div class="bg-gray-900/60 border-b border-white/5 px-6">
+  <div class="max-w-screen-2xl mx-auto flex gap-1 overflow-x-auto">
+    {['overview','hackathons','users','analytics'].map(t => '')}
+    <button onclick="switchTab('overview')"    id="tab-overview"    class="tab-btn active px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">📊 Overview</button>
+    <button onclick="switchTab('hackathons')"  id="tab-hackathons"  class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">🏆 Hackathons</button>
+    <button onclick="switchTab('users')"       id="tab-users"       class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">👥 Users & History</button>
+    <button onclick="switchTab('analytics')"   id="tab-analytics"   class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">📈 Analytics</button>
+  </div>
+</div>
+
+<main class="max-w-screen-2xl mx-auto p-6 space-y-6">
+
+<!-- ═══════════════════ OVERVIEW TAB ═══════════════════ -->
+<div id="pane-overview" class="tab-pane space-y-6">
+  <div id="overviewCards" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="glass rounded-2xl p-5">
+      <h3 class="font-semibold text-white mb-4 text-sm">Active Hackathons</h3>
+      <div id="overviewHackathons" class="space-y-2"></div>
+    </div>
+    <div class="glass rounded-2xl p-5">
+      <h3 class="font-semibold text-white mb-4 text-sm">Recent Submissions</h3>
+      <div id="overviewSubmissions" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ HACKATHONS TAB ═══════════════════ -->
+<div id="pane-hackathons" class="tab-pane hidden space-y-6">
+
+  <!-- Create Hackathon Panel -->
+  <div class="glass rounded-2xl p-6">
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🏆</span>
+        <h2 class="font-semibold text-white">Create New Hackathon</h2>
+      </div>
+      <!-- Mode Toggle -->
+      <div class="flex items-center gap-2 bg-gray-900 rounded-xl p-1 border border-white/10">
+        <button onclick="setMode('MANUAL')"       id="modeManual" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-violet-700 text-white">✏️ Manual</button>
+        <button onclick="setMode('AI_GENERATED')" id="modeAI"     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white">🤖 AI Generate</button>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Left: Form -->
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Hackathon Title *</label>
+          <input id="hTitle" type="text" placeholder="e.g. Smart City Challenge 2026" class="w-full text-sm"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">Theme/Domain</label>
+            <select id="hTheme" class="w-full text-sm">
+              <option value="AI">🤖 Artificial Intelligence</option>
+              <option value="IoT">📡 Internet of Things</option>
+              <option value="Web">🌐 Web Development</option>
+              <option value="DSA">🧮 Data Structures & Algorithms</option>
+              <option value="General">⚙️ General Programming</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">Difficulty</label>
+            <select id="hDiff" class="w-full text-sm">
+              <option value="easy">🟢 Easy</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="hard">🔴 Hard</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">Duration</label>
+            <select id="hDuration" class="w-full text-sm">
+              <option value="2h">2 Hours</option>
+              <option value="6h">6 Hours</option>
+              <option value="24h">24 Hours</option>
+              <option value="48h" selected>48 Hours</option>
+              <option value="72h">72 Hours</option>
+              <option value="1 week">1 Week</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">Mode</label>
+            <input id="hModeDisplay" readonly class="w-full text-sm cursor-not-allowed opacity-60" value="Manual"/>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Target Users (comma separated)</label>
+          <input id="hTarget" type="text" placeholder="CSE, ECE, AI, All" class="w-full text-sm"/>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="hInvite" type="checkbox" class="w-4 h-4 accent-violet-500"/>
+          <label class="text-xs text-gray-300">Invite-only hackathon</label>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Description (optional)</label>
+          <textarea id="hDesc" rows="2" placeholder="Brief description of the hackathon..." class="w-full text-sm resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Right: AI Challenge Preview / Manual Challenge Entry -->
+      <div class="space-y-3">
+        <div id="manualChallenge">
+          <label class="text-xs text-gray-400 mb-1 block">Problem Statement</label>
+          <textarea id="hProblem" rows="5" placeholder="Write the problem statement here..." class="w-full text-sm resize-none monaco"></textarea>
+          <label class="text-xs text-gray-400 mt-2 mb-1 block">Constraints</label>
+          <textarea id="hConstraints" rows="2" placeholder="e.g. Time limit: 2s, Memory: 256MB" class="w-full text-sm resize-none"></textarea>
+        </div>
+
+        <div id="aiChallenge" class="hidden">
+          <div class="rounded-xl bg-violet-950/30 border border-violet-500/20 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                AI Challenge Generator
+              </span>
+              <button onclick="previewAIChallenge()" class="text-xs bg-violet-700/60 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                ⚡ Preview Challenge
+              </button>
+            </div>
+            <div id="aiPreview" class="text-xs text-gray-400">
+              Select domain & difficulty above, then click "Preview Challenge" to see an AI-generated problem.
+            </div>
+          </div>
+        </div>
+
+        <button onclick="createHackathon()" class="w-full py-3 rounded-xl gradient-badge text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-violet-500/20">
+          🚀 Launch Hackathon
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hackathons List -->
+  <div class="glass rounded-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+      <h2 class="font-semibold text-white text-sm flex items-center gap-2">🏆 All Hackathons</h2>
+      <span id="hackathonCount" class="text-xs text-gray-400"></span>
+    </div>
+    <div id="hackathonsList" class="divide-y divide-white/5"></div>
+    <div id="hackathonsEmpty" class="hidden text-center py-12 text-gray-500 text-sm">
+      No hackathons yet. Create one above to get started.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL: Hackathon Detail ═══════════════════ -->
+<div id="hackathonModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-gray-900 rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div class="sticky top-0 bg-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between z-10">
+      <h3 id="modalTitle" class="font-bold text-lg text-white">Hackathon Details</h3>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-white text-xl">✕</button>
+    </div>
+    <div id="modalBody" class="p-6"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ USERS TAB ═══════════════════ -->
+<div id="pane-users" class="tab-pane hidden">
+  <div class="glass rounded-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+      <h2 class="font-semibold text-white text-sm flex items-center gap-2">👥 Users & Assessment History</h2>
+      <span id="userCount" class="text-xs text-gray-400"></span>
+    </div>
+    <div id="usersTable"></div>
+    <div id="usersEmpty" class="hidden text-center py-16 text-gray-500 text-sm">
+      No users yet. Users appear after completing assessments.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ ANALYTICS TAB ═══════════════════ -->
+<div id="pane-analytics" class="tab-pane hidden space-y-6">
+  <div id="analyticsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+  <div class="glass rounded-2xl p-6">
+    <h3 class="font-semibold text-white text-sm mb-5">Score Distribution</h3>
+    <div id="barChart" class="flex items-end gap-4 h-44 justify-around"></div>
+  </div>
+  <div class="glass rounded-2xl p-6">
+    <h3 class="font-semibold text-white text-sm mb-4">Hackathon Stats</h3>
+    <div id="hackathonAnalytics" class="grid md:grid-cols-3 gap-4"></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const API   = 'http://localhost:5000';
+let currentMode = 'MANUAL';
+let state = { users: [], hackathons: [], analytics: {}, submissions: [] };
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.remove('hidden');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── Mode Toggle ────────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('hModeDisplay').value = mode === 'AI_GENERATED' ? 'AI Generated' : 'Manual';
+  document.getElementById('modeManual').className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all ' + (mode==='MANUAL' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white');
+  document.getElementById('modeAI').className     = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all ' + (mode==='AI_GENERATED' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white');
+  document.getElementById('manualChallenge').classList.toggle('hidden', mode === 'AI_GENERATED');
+  document.getElementById('aiChallenge').classList.toggle('hidden',     mode === 'MANUAL');
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const scoreBadge = s => {
+  if (s===null||s===undefined) return 'pill bg-gray-800 text-gray-400';
+  if (s>=80) return 'pill bg-green-900/40 text-green-300';
+  if (s>=50) return 'pill bg-yellow-900/40 text-yellow-300';
+  return 'pill bg-red-900/40 text-red-300';
+};
+const levelBadge = l => {
+  if (!l) return 'pill bg-gray-800 text-gray-400';
+  const lc = (l||'').toLowerCase();
+  if (lc==='advanced')     return 'pill bg-red-900/40 text-red-300';
+  if (lc==='intermediate') return 'pill bg-yellow-900/40 text-yellow-300';
+  return 'pill bg-green-900/40 text-green-300';
+};
+const statusBadge = s => {
+  const m = {active:'pill bg-green-900/40 text-green-300',ended:'pill bg-gray-800 text-gray-400',draft:'pill bg-blue-900/40 text-blue-300'};
+  return m[s] || 'pill bg-gray-800 text-gray-400';
+};
+const diffBadge = d => {
+  const m = {easy:'pill bg-green-900/40 text-green-300',medium:'pill bg-yellow-900/40 text-yellow-300',hard:'pill bg-red-900/40 text-red-300'};
+  return m[d] || 'pill bg-gray-800 text-gray-400';
+};
+const fmt = d => d ? new Date(d).toLocaleString() : '—';
+const fmtShort = d => d ? new Date(d).toLocaleDateString() : '—';
+
+// ── Fetch & Refresh ─────────────────────────────────────────────────────────
+async function fetchAll() {
+  try {
+    const [uRes, aRes, hRes] = await Promise.all([
+      fetch(`${API}/api/users`),
+      fetch(`${API}/api/analytics`),
+      fetch(`${API}/api/hackathons`),
+    ]);
+    const { users }      = await uRes.json();
+    const analytics      = await aRes.json();
+    const { hackathons } = await hRes.json();
+
+    // Collect all submissions for all hackathons
+    let submissions = [];
+    for (const h of hackathons) {
+      try {
+        const sRes = await fetch(`${API}/api/hackathon/${h.id}/submissions`);
+        const { submissions: subs } = await sRes.json();
+        submissions = [...submissions, ...subs];
+      } catch {}
+    }
+
+    state = { users: users||[], hackathons: hackathons||[], analytics, submissions };
+
+    renderOverview();
+    renderHackathons();
+    renderUsers();
+    renderAnalytics();
+
+    document.getElementById('statusBadge').textContent   = '⬤ Live';
+    document.getElementById('statusBadge').className     = 'pill bg-green-900/40 text-green-300';
+    document.getElementById('lastUpdate').textContent    = '↻ ' + new Date().toLocaleTimeString();
+  } catch {
+    document.getElementById('statusBadge').textContent = '⬤ Offline';
+    document.getElementById('statusBadge').className   = 'pill bg-red-900/40 text-red-300';
+  }
+}
+
+// ── Overview ─────────────────────────────────────────────────────────────────
+function renderOverview() {
+  const { users, hackathons, submissions, analytics } = state;
+  const active = hackathons.filter(h=>h.status==='active').length;
+
+  document.getElementById('overviewCards').innerHTML = [
+    { icon:'👤', label:'Total Users',       value: users.length,         color:'text-violet-400' },
+    { icon:'🏆', label:'Hackathons',        value: hackathons.length,    color:'text-blue-400'   },
+    { icon:'📝', label:'Submissions',       value: submissions.length,   color:'text-amber-400'  },
+    { icon:'📊', label:'Avg Score',         value: (analytics.averageScore||0)+'%', color:'text-emerald-400'},
+  ].map(c => `
+    <div class="glass rounded-xl p-4 fade">
+      <p class="text-xl mb-2">${c.icon}</p>
+      <p class="text-xs text-gray-400 mb-0.5">${c.label}</p>
+      <p class="text-2xl font-bold ${c.color}">${c.value}</p>
+    </div>
+  `).join('');
+
+  document.getElementById('overviewHackathons').innerHTML = hackathons.length === 0
+    ? '<p class="text-sm text-gray-500">No hackathons yet</p>'
+    : hackathons.slice(0,5).map(h => `
+      <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-900/60 hover:bg-gray-800/40">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white truncate">${h.title}</p>
+          <p class="text-xs text-gray-500">${h.participants?.length||0} participants</p>
+        </div>
+        <span class="${statusBadge(h.status)}">${h.status}</span>
+      </div>`).join('');
+
+  document.getElementById('overviewSubmissions').innerHTML = submissions.length === 0
+    ? '<p class="text-sm text-gray-500">No submissions yet</p>'
+    : submissions.slice(-5).reverse().map(s => `
+      <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-900/60">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white truncate">${s.userName}</p>
+          <p class="text-xs text-gray-500">${fmtShort(s.submittedAt)} · ${s.language||'—'}</p>
+        </div>
+        <span class="${scoreBadge(s.score)}">${s.score??'Pending'}%</span>
+      </div>`).join('');
+}
+
+// ── Hackathons ───────────────────────────────────────────────────────────────
+function renderHackathons() {
+  const { hackathons } = state;
+  document.getElementById('hackathonCount').textContent = `${hackathons.length} hackathon${hackathons.length!==1?'s':''}`;
+
+  const list  = document.getElementById('hackathonsList');
+  const empty = document.getElementById('hackathonsEmpty');
+
+  if (!hackathons.length) { list.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  list.innerHTML = hackathons.map(h => `
+    <div class="p-5 hover:bg-white/[0.02] transition-colors fade">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span class="font-semibold text-white">${h.title}</span>
+            <span class="${statusBadge(h.status)}">${h.status}</span>
+            <span class="${diffBadge(h.difficulty)}">${h.difficulty}</span>
+            ${h.inviteOnly ? '<span class="pill bg-purple-900/40 text-purple-300">🔒 Invite Only</span>' : ''}
+            ${h.mode==='AI_GENERATED' ? '<span class="pill bg-blue-900/40 text-blue-300">🤖 AI Mode</span>' : ''}
+          </div>
+          <div class="flex items-center gap-4 text-xs text-gray-400">
+            <span>📡 ${h.theme}</span>
+            <span>⏱ ${h.duration}</span>
+            <span>👥 ${h.participants?.length||0} participants</span>
+            <span>🧩 ${h.challenges?.length||0} challenge${h.challenges?.length!==1?'s':''}</span>
+            <span>📅 ${fmtShort(h.createdAt)}</span>
+          </div>
+          ${h.description ? `<p class="text-xs text-gray-500 mt-1 truncate">${h.description}</p>` : ''}
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="viewHackathon('${h.id}')"   class="text-xs bg-violet-900/40 hover:bg-violet-800/60 text-violet-300 px-3 py-1.5 rounded-lg transition-colors">👁 View</button>
+          <button onclick="generateChallenge('${h.id}')" class="text-xs bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 px-3 py-1.5 rounded-lg transition-colors">⚡ + Challenge</button>
+          <button onclick="toggleStatus('${h.id}','${h.status}')" class="text-xs ${h.status==='active'?'bg-gray-800 text-gray-400 hover:bg-red-900/30 hover:text-red-300':'bg-green-900/30 text-green-300 hover:bg-green-800/40'} px-3 py-1.5 rounded-lg transition-colors">${h.status==='active'?'⏸ End':'▶ Activate'}</button>
+          <button onclick="deleteHackathon('${h.id}','${h.title}')" class="text-xs bg-red-950/40 hover:bg-red-900/40 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg transition-colors">🗑</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+function renderUsers() {
+  const { users } = state;
+  document.getElementById('userCount').textContent = `${users.length} user${users.length!==1?'s':''}`;
+  const table = document.getElementById('usersTable');
+  const empty = document.getElementById('usersEmpty');
+
+  if (!users.length) { table.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  table.innerHTML = users.map((u, i) => {
+    const hist = u.assessmentHistory || [];
+    const histHTML = hist.map((h, hi) => `
+      <tr class="bg-gray-950/50">
+        <td class="pl-16 py-2 text-xs text-gray-500">#${hi+1}</td>
+        <td class="py-2 text-xs text-gray-300">${fmt(h.evaluatedAt)}</td>
+        <td class="py-2"><span class="${scoreBadge(h.score)}">${h.score}%</span></td>
+        <td class="py-2"><span class="${levelBadge(h.level)}">${h.level||'—'}</span></td>
+        <td class="py-2 text-xs text-gray-500">${h.badge||'—'}</td>
+      </tr>`).join('');
+
+    return `
+      <div class="fade border-b border-white/5">
+        <details>
+          <summary class="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
+            <span class="text-xs text-gray-500 w-5 text-right">${i+1}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-white">${u.name}</p>
+              <p class="text-xs text-gray-400">${u.email||'—'}</p>
+            </div>
+            <span class="${scoreBadge(u.score)}">${u.score}%</span>
+            <span class="${levelBadge(u.level)}">${u.level||'—'}</span>
+            <span class="text-xs text-gray-500">${hist.length} attempt${hist.length!==1?'s':''}</span>
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <div class="px-6 pb-4 bg-gray-950/30">
+            <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2 mt-2">Assessment History</p>
+            <div class="overflow-x-auto rounded-xl border border-white/5">
+              <table class="w-full text-sm">
+                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase tracking-wider">
+                  <th class="px-4 py-2 text-left">#</th>
+                  <th class="px-4 py-2 text-left">Date & Time</th>
+                  <th class="px-4 py-2 text-left">Score</th>
+                  <th class="px-4 py-2 text-left">Level</th>
+                  <th class="px-4 py-2 text-left">Badge</th>
+                </tr></thead>
+                <tbody class="divide-y divide-white/5">
+                  ${hist.length ? histHTML : '<tr><td colspan="5" class="px-4 py-4 text-center text-xs text-gray-500">No history yet — user needs to submit an assessment</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+            ${u.skills?.length ? `<div class="mt-3 flex flex-wrap gap-1.5">${u.skills.map(s=>`<span class="pill bg-violet-900/30 text-violet-300">${s}</span>`).join('')}</div>` : ''}
+            <button onclick="deleteUser('${u.id}','${u.name}')" class="mt-3 text-xs text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-900/30 px-3 py-1.5 rounded-lg transition-colors">🗑 Delete User</button>
+          </div>
+        </details>
+      </div>`;
+  }).join('');
+}
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+function renderAnalytics() {
+  const { analytics, hackathons, submissions } = state;
+
+  document.getElementById('analyticsGrid').innerHTML = [
+    { icon:'👤', label:'Users',         value: analytics.totalUsers||0, sub:'registered' },
+    { icon:'📊', label:'Average Score', value: (analytics.averageScore||0)+'%', sub:'assessment avg'},
+    { icon:'🏆', label:'Top Skill',     value: analytics.topSkill||'N/A', sub:'most common' },
+    { icon:'📝', label:'Submissions',   value: submissions.length, sub:'hackathon total' },
+  ].map(c=>`
+    <div class="glass rounded-xl p-4 fade">
+      <p class="text-xl mb-2">${c.icon}</p>
+      <p class="text-xs text-gray-400">${c.label}</p>
+      <p class="text-2xl font-bold text-white mt-0.5">${c.value}</p>
+      <p class="text-xs text-gray-500">${c.sub}</p>
+    </div>`).join('');
+
+  // Bar chart
+  const dist = analytics.scoreDistribution || {};
+  const entries = Object.entries(dist);
+  const max = Math.max(...entries.map(([,v])=>v), 1);
+  document.getElementById('barChart').innerHTML = entries.length === 0
+    ? '<p class="text-sm text-gray-500 mx-auto">No data yet</p>'
+    : entries.map(([label, count], i)=>`
+      <div class="flex-1 flex flex-col items-center gap-1">
+        <span class="text-xs font-mono text-gray-300">${count}</span>
+        <div class="w-full flex items-end" style="height:140px">
+          <div class="w-full bar rounded-t-md" style="height:${Math.max(count>0?4:0,Math.round(count/max*140))}px;background:linear-gradient(to top,#7c3aed,#818cf8)"></div>
+        </div>
+        <span class="text-xs text-gray-400 whitespace-nowrap">${label}</span>
+      </div>`).join('');
+
+  document.getElementById('hackathonAnalytics').innerHTML = [
+    { label:'Total Hackathons',   value: hackathons.length },
+    { label:'Active',             value: hackathons.filter(h=>h.status==='active').length },
+    { label:'Total Participants', value: hackathons.reduce((a,h)=>a+(h.participants?.length||0),0) },
+  ].map(c=>`
+    <div class="glass rounded-xl p-4 text-center">
+      <p class="text-3xl font-bold text-violet-400">${c.value}</p>
+      <p class="text-xs text-gray-400 mt-1">${c.label}</p>
+    </div>`).join('');
+}
+
+// ── Create Hackathon ─────────────────────────────────────────────────────────
+async function createHackathon() {
+  const title  = document.getElementById('hTitle').value.trim();
+  if (!title) { alert('Please enter a hackathon title'); return; }
+
+  const payload = {
+    title,
+    theme:       document.getElementById('hTheme').value,
+    difficulty:  document.getElementById('hDiff').value,
+    duration:    document.getElementById('hDuration').value,
+    mode:        currentMode,
+    inviteOnly:  document.getElementById('hInvite').checked,
+    description: document.getElementById('hDesc').value.trim(),
+    targetUsers: document.getElementById('hTarget').value.split(',').map(s=>s.trim()).filter(Boolean),
+  };
+
+  if (currentMode === 'MANUAL') {
+    payload.manualProblem    = document.getElementById('hProblem').value.trim();
+    payload.manualConstraints= document.getElementById('hConstraints').value.trim();
+  }
+
+  try {
+    const res  = await fetch(`${API}/api/hackathon/setup`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    document.getElementById('hTitle').value = '';
+    document.getElementById('hProblem').value = '';
+    document.getElementById('hDesc').value = '';
+    fetchAll();
+    switchTab('hackathons');
+    alert(`✅ Hackathon "${title}" launched successfully!`);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── AI Preview ───────────────────────────────────────────────────────────────
+async function previewAIChallenge() {
+  const domain = document.getElementById('hTheme').value;
+  const diff   = document.getElementById('hDiff').value;
+  document.getElementById('aiPreview').innerHTML = '<p class="text-violet-300">⚡ Generating challenge...</p>';
+  try {
+    const res  = await fetch(`${API}/api/hackathon/generate-challenge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ domain, difficulty:diff }) });
+    const data = await res.json();
+    const c    = data.challenge;
+    document.getElementById('aiPreview').innerHTML = `
+      <div class="space-y-2">
+        <p class="text-violet-300 font-semibold text-xs uppercase tracking-wider">AI-Generated Problem</p>
+        <p class="text-gray-200 text-xs leading-relaxed">${c.problem}</p>
+        <p class="text-xs text-gray-400 font-semibold mt-2">Constraints:</p>
+        <p class="text-gray-300 text-xs">${c.constraints}</p>
+        <p class="text-xs text-gray-400 font-semibold mt-2">Test Cases:</p>
+        ${(c.testCases||[]).map(t=>`<div class="bg-black/30 rounded p-2 text-xs font-mono"><span class="text-green-400">In:</span> ${t.input} <span class="text-blue-400 ml-2">→</span> <span class="text-amber-400">${t.expected}</span></div>`).join('')}
+      </div>`;
+  } catch { document.getElementById('aiPreview').innerHTML = '<p class="text-red-300">Failed to generate. Is backend running?</p>'; }
+}
+
+// ── Generate + Add Challenge ─────────────────────────────────────────────────
+async function generateChallenge(hackathonId) {
+  const h = state.hackathons.find(h=>h.id===hackathonId);
+  if (!h) return;
+
+  try {
+    const res  = await fetch(`${API}/api/hackathon/generate-challenge`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ domain: h.theme, difficulty: h.difficulty, hackathonId })
+    });
+    const data = await res.json();
+    if (data.success) { alert(`✅ Challenge added to "${h.title}"!`); fetchAll(); }
+  } catch { alert('Failed to generate challenge.'); }
+}
+
+// ── Toggle Status ─────────────────────────────────────────────────────────────
+async function toggleStatus(id, currentStatus) {
+  const newStatus = currentStatus === 'active' ? 'ended' : 'active';
+  try {
+    await fetch(`${API}/api/hackathon/${id}/status`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+    fetchAll();
+  } catch { alert('Failed to update status.'); }
+}
+
+// ── View Hackathon Modal ───────────────────────────────────────────────────────
+async function viewHackathon(id) {
+  const h = state.hackathons.find(h => h.id === id);
+  if (!h) return;
+
+  let subs = [], lb = [];
+  try {
+    const [sRes, lRes] = await Promise.all([
+      fetch(`${API}/api/hackathon/${id}/submissions`),
+      fetch(`${API}/api/hackathon/${id}/leaderboard`),
+    ]);
+    const sd = await sRes.json(); subs = sd.submissions || [];
+    const ld = await lRes.json(); lb   = ld.leaderboard  || [];
+  } catch {}
+
+  document.getElementById('modalTitle').textContent = h.title;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="space-y-6">
+      <!-- Info -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${[
+          {l:'Status',       v:`<span class="${statusBadge(h.status)}">${h.status}</span>`},
+          {l:'Theme',        v:h.theme},
+          {l:'Difficulty',   v:`<span class="${diffBadge(h.difficulty)}">${h.difficulty}</span>`},
+          {l:'Duration',     v:h.duration},
+          {l:'Mode',         v:h.mode==='AI_GENERATED'?'🤖 AI Generated':'✏️ Manual'},
+          {l:'Participants', v:h.participants?.length||0},
+          {l:'Challenges',   v:h.challenges?.length||0},
+          {l:'Created',      v:fmtShort(h.createdAt)},
+        ].map(i=>`<div class="bg-gray-800/40 rounded-xl p-3"><p class="text-xs text-gray-400">${i.l}</p><p class="text-sm font-medium text-white mt-0.5">${i.v}</p></div>`).join('')}
+      </div>
+
+      <!-- Challenges -->
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-3">🧩 Challenges (${h.challenges?.length||0})</h4>
+        ${!h.challenges?.length
+          ? '<p class="text-sm text-gray-500">No challenges yet. Use the "⚡ + Challenge" button to add one.</p>'
+          : h.challenges.map((c,i)=>`
+            <details class="bg-gray-800/40 rounded-xl mb-2">
+              <summary class="px-4 py-3 flex items-center justify-between">
+                <span class="text-sm font-medium text-white">Challenge ${i+1}: ${c.domain} / ${c.difficulty}</span>
+                <span class="${diffBadge(c.difficulty)}">${c.difficulty}</span>
+              </summary>
+              <div class="px-4 pb-4 pt-2 space-y-2">
+                <p class="text-xs text-gray-300 leading-relaxed">${c.problem}</p>
+                <p class="text-xs text-gray-400"><strong>Constraints:</strong> ${c.constraints||'—'}</p>
+                ${c.testCases?.length ? `
+                  <p class="text-xs text-gray-400 font-semibold mt-2">Test Cases:</p>
+                  ${c.testCases.map(t=>`<div class="bg-black/30 rounded p-2 text-xs font-mono"><span class="text-green-400">In:</span> ${t.input} → <span class="text-amber-400">${t.expected}</span></div>`).join('')}
+                ` : ''}
+                ${c.sampleCode ? `<details class="mt-2"><summary class="text-xs text-violet-400 cursor-pointer">Show sample code</summary><pre class="bg-black/40 rounded p-3 text-xs text-gray-300 overflow-x-auto mt-1 font-mono">${c.sampleCode}</pre></details>` : ''}
+              </div>
+            </details>`).join('')}
+      </div>
+
+      <!-- Participants -->
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-3">👥 Participants (${h.participants?.length||0})</h4>
+        ${!h.participants?.length
+          ? '<p class="text-sm text-gray-500">No participants yet.</p>'
+          : `<div class="overflow-x-auto rounded-xl border border-white/5">
+              <table class="w-full text-sm">
+                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase"><th class="px-4 py-2 text-left">#</th><th class="px-4 py-2 text-left">Name</th><th class="px-4 py-2 text-left">Email</th><th class="px-4 py-2 text-left">Joined</th></tr></thead>
+                <tbody class="divide-y divide-white/5">
+                  ${h.participants.map((p,i)=>`<tr><td class="px-4 py-2 text-xs text-gray-500">${i+1}</td><td class="px-4 py-2 text-sm text-white">${p.name}</td><td class="px-4 py-2 text-xs text-gray-400">${p.email||'—'}</td><td class="px-4 py-2 text-xs text-gray-500">${fmt(p.joinedAt)}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`}
+      </div>
+
+      <!-- Leaderboard -->
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-3">🏆 Hackathon Leaderboard (${lb.length})</h4>
+        ${!lb.length
+          ? '<p class="text-sm text-gray-500">No submissions yet.</p>'
+          : `<div class="overflow-x-auto rounded-xl border border-white/5">
+              <table class="w-full text-sm">
+                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase"><th class="px-4 py-2 text-left">Rank</th><th class="px-4 py-2 text-left">Name</th><th class="px-4 py-2 text-left">Score</th><th class="px-4 py-2 text-left">Language</th><th class="px-4 py-2 text-left">Submitted</th></tr></thead>
+                <tbody class="divide-y divide-white/5">
+                  ${lb.map(l=>`<tr><td class="px-4 py-2 font-bold text-white">${l.rank===1?'🥇':l.rank===2?'🥈':l.rank===3?'🥉':'#'+l.rank}</td><td class="px-4 py-2 text-white">${l.name}</td><td class="px-4 py-2"><span class="${scoreBadge(l.score)}">${l.score}%</span></td><td class="px-4 py-2 text-xs text-gray-400">${l.language||'—'}</td><td class="px-4 py-2 text-xs text-gray-500">${fmt(l.submittedAt)}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`}
+      </div>
+
+      <!-- Submissions -->
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-3">📝 All Submissions (${subs.length})</h4>
+        ${!subs.length
+          ? '<p class="text-sm text-gray-500">No submissions yet.</p>'
+          : subs.slice().reverse().map(s=>`
+            <details class="bg-gray-800/40 rounded-xl mb-2">
+              <summary class="px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="text-sm font-medium text-white">${s.userName}</span>
+                  <span class="text-xs text-gray-400">${s.language||'—'}</span>
+                  <span class="text-xs text-gray-500">${fmtShort(s.submittedAt)}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="${scoreBadge(s.score)}">${s.score??'Pending'}%</span>
+                </div>
+              </summary>
+              <div class="px-4 pb-4 pt-2 space-y-2">
+                ${s.feedback ? `<div class="bg-violet-950/30 border border-violet-500/20 rounded-lg p-3"><p class="text-xs text-violet-300 font-semibold mb-1">AI Feedback:</p><pre class="text-xs text-gray-300 whitespace-pre-wrap">${s.feedback}</pre></div>` : ''}
+                <details><summary class="text-xs text-blue-400 cursor-pointer">View submitted code</summary>
+                  <pre class="bg-black/40 rounded p-3 text-xs text-gray-300 overflow-x-auto mt-1 font-mono whitespace-pre-wrap">${s.code||'(no code)'}</pre>
+                </details>
+              </div>
+            </details>`).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('hackathonModal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('hackathonModal').classList.add('hidden'); }
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteHackathon(id, title) {
+  if (!confirm(`Delete hackathon "${title}"?`)) return;
+  await fetch(`${API}/api/hackathon/${id}`, { method:'DELETE' });
+  fetchAll();
+}
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user "${name}"?`)) return;
+  await fetch(`${API}/api/users/${id}`, { method:'DELETE' });
+  fetchAll();
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+fetchAll();
+setInterval(fetchAll, 5000);
+</script>
+</body>
+</html>
