@@ -16,7 +16,7 @@ import {
   Trash2, RefreshCw, Wifi, WifiOff,
 } from "lucide-react";
 
-const API = "http://localhost:5000";
+const API = ""; // uses Vite proxy: /api → localhost:5000
 
 interface UserEntry {
   id: string;

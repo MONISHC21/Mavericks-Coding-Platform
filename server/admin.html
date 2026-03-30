@@ -1,725 +1,898 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Mavericks Admin — Hackathon Control Center</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config = { darkMode:'class' };</script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    *{font-family:'Inter',sans-serif}
-    .glass{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08)}
-    .gradient-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5)}
-    .bar{transition:height 0.8s cubic-bezier(0.4,0,0.2,1)}
-    .fade{animation:fade 0.3s ease}
-    @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    .tab-btn.active{background:rgba(124,58,237,0.2);color:#a78bfa;border-color:rgba(124,58,237,0.4)}
-    .tab-btn{transition:all .2s}
-    .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600}
-    .blink{animation:blink 1.5s infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-    textarea,select,input{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#f1f5f9!important;border-radius:8px!important;padding:8px 12px}
-    textarea:focus,select:focus,input:focus{outline:none!important;border-color:rgba(124,58,237,0.6)!important}
-    select option{background:#1e1b4b;color:#f1f5f9}
-    summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
-    .monaco{font-family:'Fira Code','Courier New',monospace;font-size:13px;line-height:1.6;tab-size:2}
-    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.3);border-radius:4px}
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mavericks Admin — Control Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+:root{
+  --bg:#050811;--surface:#0a0f1e;--card:#0d1428;--border:#1a2444;
+  --cyan:#00d4ff;--cyan2:#00a8d4;--violet:#7c3aed;--violet2:#6d28d9;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;
+}
+body{background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1a2444;border-radius:4px}
+
+/* Layout */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--surface);border-right:1px solid var(--border);padding:0;z-index:100;display:flex;flex-direction:column}
+.main{margin-left:220px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:56px;background:rgba(10,15,30,0.9);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;backdrop-filter:blur(12px);position:sticky;top:0;z-index:50}
+.content{padding:24px;flex:1}
+
+/* Sidebar */
+.brand{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.brand-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;justify-content:center;margin-bottom:10px;box-shadow:0 0 20px rgba(0,212,255,0.3)}
+.brand-logo svg{width:18px;height:18px;color:#fff}
+.brand h1{font-size:14px;font-weight:700;color:#fff}
+.brand p{font-size:10px;color:var(--muted);margin-top:2px}
+.nav{padding:12px 10px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .2s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(0,212,255,0.06);color:var(--text)}
+.nav-item.active{background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid rgba(0,212,255,0.15)}
+.nav-item .icon{font-size:16px}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border)}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-offline{background:var(--red)}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.card-glass{background:rgba(13,20,40,0.6);border:1px solid var(--border);border-radius:14px;backdrop-filter:blur(8px)}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:border-color .3s}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-card.cyan::before{background:linear-gradient(90deg,var(--cyan),transparent)}
+.stat-card.violet::before{background:linear-gradient(90deg,var(--violet),transparent)}
+.stat-card.green::before{background:linear-gradient(90deg,var(--green),transparent)}
+.stat-card.amber::before{background:linear-gradient(90deg,var(--amber),transparent)}
+.stat-card:hover{border-color:rgba(0,212,255,0.2)}
+.stat-icon{font-size:22px;margin-bottom:12px}
+.stat-value{font-size:28px;font-weight:800;color:#fff;line-height:1}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+
+/* Grid */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-green{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.badge-red{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.badge-amber{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.2)}
+.badge-cyan{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.2)}
+.badge-violet{background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.2)}
+.badge-gray{background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;border:none}
+.btn-cyan{background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#000;box-shadow:0 0 20px rgba(0,212,255,.25)}
+.btn-cyan:hover{box-shadow:0 0 30px rgba(0,212,255,.4);transform:translateY(-1px)}
+.btn-ghost{background:rgba(255,255,255,.04);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(0,212,255,.3)}
+.btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-violet{background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3)}
+.btn-violet:hover{background:rgba(124,58,237,.3)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+/* Form */
+.form-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
+.form-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;transition:border-color .2s;font-family:inherit}
+.form-input:focus{outline:none;border-color:rgba(0,212,255,.5);background:rgba(0,212,255,.03)}
+.form-input::placeholder{color:var(--muted)}
+select.form-input option{background:#0a0f1e;color:var(--text)}
+textarea.form-input{resize:vertical;min-height:80px}
+.form-group{margin-bottom:14px}
+
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:500px}
+thead tr{background:rgba(0,212,255,.04);border-bottom:1px solid var(--border)}
+th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;white-space:nowrap}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid rgba(26,36,68,.6);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.02)}
+
+/* Tabs (hidden panes) */
+.pane{display:none}
+.pane.active{display:block}
+
+/* Section header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.section-title{font-size:15px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+.section-sub{font-size:12px;color:var(--muted)}
+
+/* Mode toggle */
+.mode-toggle{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px}
+.mode-btn{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;border:none;color:var(--muted);background:none}
+.mode-btn.active{background:rgba(0,212,255,.15);color:var(--cyan)}
+
+/* Divider */
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* Empty state */
+.empty{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:.5}
+.empty p{font-size:13px}
+
+/* Bar chart */
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:120px;padding:0 4px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-fill{width:100%;border-radius:6px 6px 0 0;transition:height .8s cubic-bezier(.4,0,.2,1);background:linear-gradient(to top,var(--cyan),var(--violet));min-height:3px}
+.bar-val{font-size:11px;font-weight:700;color:#fff}
+.bar-lbl{font-size:10px;color:var(--muted);text-align:center}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:840px;max-height:88vh;display:flex;flex-direction:column}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-body{overflow-y:auto;padding:24px;flex:1}
+.modal-title{font-size:16px;font-weight:700;color:#fff}
+.close-btn{width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.close-btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+
+/* Detail box */
+.detail-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.detail-box{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:10px 14px;min-width:100px;flex:1}
+.detail-box .dl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.detail-box .dv{font-size:13px;font-weight:600;color:#fff}
+
+/* Collapsible */
+.collapsible{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.coll-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:rgba(13,20,40,.8)}
+.coll-head:hover{background:rgba(0,212,255,.04)}
+.coll-body{padding:14px 16px;border-top:1px solid var(--border);background:rgba(5,8,17,.5);display:none}
+.coll-body.open{display:block}
+.coll-arrow{transition:transform .2s;font-size:12px;color:var(--muted)}
+.coll-arrow.open{transform:rotate(180deg)}
+
+/* Prism-like code */
+.code-block{background:#020408;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#94a3b8;overflow-x:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all}
+
+/* Glow */
+.glow-cyan{text-shadow:0 0 12px rgba(0,212,255,.6)}
+.topbar-title{font-size:14px;font-weight:600;color:#fff}
+.topbar-right{display:flex;align-items:center;gap:12px}
+
+/* Animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fade-up{animation:fadeUp .3s ease}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse{animation:pulse 2s infinite}
+
+/* Checkbox */
+.check-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
+.check-wrap input[type=checkbox]{accent-color:var(--cyan);width:15px;height:15px}
+</style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+<body>
 
-<!-- ─── Header ─────────────────────────────────────────────────────────────── -->
-<header class="bg-gray-900/90 border-b border-white/10 px-6 py-3 sticky top-0 z-50 backdrop-blur">
-  <div class="max-w-screen-2xl mx-auto flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl gradient-badge flex items-center justify-center shadow-lg shadow-violet-500/20">
-        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    </div>
+    <h1>Mavericks</h1>
+    <p>Admin Control Center</p>
+  </div>
+  <nav class="nav">
+    <button class="nav-item active" onclick="showPane('overview')" id="nav-overview">
+      <span class="icon">📊</span> Overview
+    </button>
+    <button class="nav-item" onclick="showPane('hackathons')" id="nav-hackathons">
+      <span class="icon">🏆</span> Hackathons
+    </button>
+    <button class="nav-item" onclick="showPane('users')" id="nav-users">
+      <span class="icon">👥</span> Users
+    </button>
+    <button class="nav-item" onclick="showPane('analytics')" id="nav-analytics">
+      <span class="icon">📈</span> Analytics
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div style="font-size:12px;margin-bottom:6px">
+      <span class="status-dot status-online" id="statusDot"></span>
+      <span id="statusText" style="color:var(--muted)">Connecting…</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted)" id="lastSync"></div>
+    <a href="http://localhost:8080" target="_blank" class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%;justify-content:center;text-decoration:none">↗ User App</a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <span class="topbar-title" id="pageTitle">Overview</span>
+    <div class="topbar-right">
+      <span style="font-size:11px;color:var(--muted)" id="syncLabel" class="pulse">Syncing…</span>
+      <button class="btn btn-ghost btn-sm" onclick="fetchAll()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ══ OVERVIEW ══ -->
+    <div id="pane-overview" class="pane active">
+      <div class="grid-4 fade-up" id="overviewCards" style="margin-bottom:20px"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-header"><span class="section-title">🏆 Active Hackathons</span></div>
+          <div id="ovHackathons"></div>
+        </div>
+        <div class="card">
+          <div class="section-header"><span class="section-title">📝 Recent Submissions</span></div>
+          <div id="ovSubmissions"></div>
+        </div>
       </div>
+    </div>
+
+    <!-- ══ HACKATHONS ══ -->
+    <div id="pane-hackathons" class="pane">
+      <!-- Create panel -->
+      <div class="card fade-up" style="margin-bottom:20px">
+        <div class="section-header">
+          <span class="section-title">➕ Create Hackathon</span>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="mBtn-MANUAL" onclick="setMode('MANUAL')">✏️ Manual</button>
+            <button class="mode-btn" id="mBtn-AI_GENERATED" onclick="setMode('AI_GENERATED')">🤖 AI Mode</button>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <div class="form-group">
+              <label class="form-label">Title *</label>
+              <input id="hTitle" class="form-input" placeholder="e.g. Smart City Challenge 2026"/>
+            </div>
+            <div class="grid-2" style="gap:10px">
+              <div class="form-group">
+                <label class="form-label">Theme</label>
+                <select id="hTheme" class="form-input">
+                  <option value="AI">🤖 Artificial Intelligence</option>
+                  <option value="IoT">📡 Internet of Things</option>
+                  <option value="Web">🌐 Web Development</option>
+                  <option value="DSA">🧮 DSA</option>
+                  <option value="General">⚙️ General</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Difficulty</label>
+                <select id="hDiff" class="form-input">
+                  <option value="easy">🟢 Easy</option>
+                  <option value="medium" selected>🟡 Medium</option>
+                  <option value="hard">🔴 Hard</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid-2" style="gap:10px">
+              <div class="form-group">
+                <label class="form-label">Duration</label>
+                <select id="hDuration" class="form-input">
+                  <option value="2h">2 Hours</option>
+                  <option value="6h">6 Hours</option>
+                  <option value="24h">24 Hours</option>
+                  <option value="48h" selected>48 Hours</option>
+                  <option value="72h">72 Hours</option>
+                  <option value="1 week">1 Week</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Target Users</label>
+                <input id="hTarget" class="form-input" placeholder="CSE, ECE, All"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea id="hDesc" class="form-input" rows="2" placeholder="Brief overview…"></textarea>
+            </div>
+            <label class="check-wrap" style="margin-bottom:14px">
+              <input id="hInvite" type="checkbox"/> Invite-only hackathon
+            </label>
+          </div>
+          <div>
+            <div id="manualFields">
+              <div class="form-group">
+                <label class="form-label">Problem Statement</label>
+                <textarea id="hProblem" class="form-input" rows="5" placeholder="Describe the challenge…" style="font-family:'JetBrains Mono',monospace;font-size:12px"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Constraints</label>
+                <textarea id="hConstraints" class="form-input" rows="2" placeholder="Time/memory limits, rules…"></textarea>
+              </div>
+            </div>
+            <div id="aiFields" style="display:none">
+              <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);border-radius:10px;padding:16px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                  <span style="font-size:12px;font-weight:600;color:var(--cyan)">⚡ AI Challenge Generator</span>
+                  <button class="btn btn-cyan btn-sm" onclick="previewAI()">Preview</button>
+                </div>
+                <div id="aiPreview" style="font-size:12px;color:var(--muted)">Select domain &amp; difficulty, then click Preview.</div>
+              </div>
+            </div>
+            <button id="launchBtn" class="btn btn-cyan" style="width:100%;justify-content:center;padding:11px" onclick="createHackathon()">🚀 Launch Hackathon</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div class="card">
+        <div class="section-header">
+          <span class="section-title">🏆 All Hackathons</span>
+          <span class="section-sub" id="hackCount"></span>
+        </div>
+        <div id="hackList"></div>
+        <div id="hackEmpty" class="empty" style="display:none"><div class="empty-icon">🏆</div><p>No hackathons yet</p></div>
+      </div>
+    </div>
+
+    <!-- ══ USERS ══ -->
+    <div id="pane-users" class="pane">
+      <div class="card fade-up">
+        <div class="section-header">
+          <span class="section-title">👥 Registered Users</span>
+          <span class="section-sub" id="userCount"></span>
+        </div>
+        <div id="usersList"></div>
+        <div id="usersEmpty" class="empty" style="display:none"><div class="empty-icon">👤</div><p>No users yet</p></div>
+      </div>
+    </div>
+
+    <!-- ══ ANALYTICS ══ -->
+    <div id="pane-analytics" class="pane">
+      <div class="grid-4 fade-up" id="analyticsCards" style="margin-bottom:20px"></div>
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="section-header"><span class="section-title">📊 Score Distribution</span></div>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+        <div class="card">
+          <div class="section-header"><span class="section-title">🏆 Hackathon Overview</span></div>
+          <div id="hackStats"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- HACKATHON MODAL -->
+<div class="modal-bg" id="hackModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modalTitle">Hackathon</span>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- USER REPORT MODAL -->
+<div class="modal-bg" id="reportModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-head">
       <div>
-        <h1 class="font-bold text-base text-white leading-none">Mavericks Admin</h1>
-        <p class="text-[10px] text-gray-400">Hackathon Control Center</p>
+        <span class="modal-title" id="reportModalTitle">User Report</span>
+        <p style="font-size:11px;color:var(--muted);margin-top:2px" id="reportModalSub"></p>
       </div>
+      <button class="close-btn" onclick="closeReport()">✕</button>
     </div>
-    <div class="flex items-center gap-3">
-      <span id="statusBadge" class="pill bg-gray-800 text-gray-400">⬤ Connecting</span>
-      <span class="text-xs text-gray-500 blink" id="lastUpdate"></span>
-      <a href="http://localhost:8080" target="_blank" class="text-xs bg-violet-700 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">→ User App</a>
-    </div>
-  </div>
-</header>
-
-<!-- ─── Tab Navigation ─────────────────────────────────────────────────────── -->
-<div class="bg-gray-900/60 border-b border-white/5 px-6">
-  <div class="max-w-screen-2xl mx-auto flex gap-1 overflow-x-auto">
-    {['overview','hackathons','users','analytics'].map(t => '')}
-    <button onclick="switchTab('overview')"    id="tab-overview"    class="tab-btn active px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">📊 Overview</button>
-    <button onclick="switchTab('hackathons')"  id="tab-hackathons"  class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">🏆 Hackathons</button>
-    <button onclick="switchTab('users')"       id="tab-users"       class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">👥 Users & History</button>
-    <button onclick="switchTab('analytics')"   id="tab-analytics"   class="tab-btn px-5 py-3 text-sm font-medium text-gray-300 border-b-2 border-transparent whitespace-nowrap">📈 Analytics</button>
+    <div class="modal-body" id="reportModalBody"></div>
   </div>
 </div>
-
-<main class="max-w-screen-2xl mx-auto p-6 space-y-6">
-
-<!-- ═══════════════════ OVERVIEW TAB ═══════════════════ -->
-<div id="pane-overview" class="tab-pane space-y-6">
-  <div id="overviewCards" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
-  <div class="grid md:grid-cols-2 gap-6">
-    <div class="glass rounded-2xl p-5">
-      <h3 class="font-semibold text-white mb-4 text-sm">Active Hackathons</h3>
-      <div id="overviewHackathons" class="space-y-2"></div>
-    </div>
-    <div class="glass rounded-2xl p-5">
-      <h3 class="font-semibold text-white mb-4 text-sm">Recent Submissions</h3>
-      <div id="overviewSubmissions" class="space-y-2"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ HACKATHONS TAB ═══════════════════ -->
-<div id="pane-hackathons" class="tab-pane hidden space-y-6">
-
-  <!-- Create Hackathon Panel -->
-  <div class="glass rounded-2xl p-6">
-    <div class="flex items-center justify-between mb-5">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">🏆</span>
-        <h2 class="font-semibold text-white">Create New Hackathon</h2>
-      </div>
-      <!-- Mode Toggle -->
-      <div class="flex items-center gap-2 bg-gray-900 rounded-xl p-1 border border-white/10">
-        <button onclick="setMode('MANUAL')"       id="modeManual" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-violet-700 text-white">✏️ Manual</button>
-        <button onclick="setMode('AI_GENERATED')" id="modeAI"     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white">🤖 AI Generate</button>
-      </div>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-6">
-      <!-- Left: Form -->
-      <div class="space-y-3">
-        <div>
-          <label class="text-xs text-gray-400 mb-1 block">Hackathon Title *</label>
-          <input id="hTitle" type="text" placeholder="e.g. Smart City Challenge 2026" class="w-full text-sm"/>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Theme/Domain</label>
-            <select id="hTheme" class="w-full text-sm">
-              <option value="AI">🤖 Artificial Intelligence</option>
-              <option value="IoT">📡 Internet of Things</option>
-              <option value="Web">🌐 Web Development</option>
-              <option value="DSA">🧮 Data Structures & Algorithms</option>
-              <option value="General">⚙️ General Programming</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Difficulty</label>
-            <select id="hDiff" class="w-full text-sm">
-              <option value="easy">🟢 Easy</option>
-              <option value="medium" selected>🟡 Medium</option>
-              <option value="hard">🔴 Hard</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Duration</label>
-            <select id="hDuration" class="w-full text-sm">
-              <option value="2h">2 Hours</option>
-              <option value="6h">6 Hours</option>
-              <option value="24h">24 Hours</option>
-              <option value="48h" selected>48 Hours</option>
-              <option value="72h">72 Hours</option>
-              <option value="1 week">1 Week</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Mode</label>
-            <input id="hModeDisplay" readonly class="w-full text-sm cursor-not-allowed opacity-60" value="Manual"/>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-gray-400 mb-1 block">Target Users (comma separated)</label>
-          <input id="hTarget" type="text" placeholder="CSE, ECE, AI, All" class="w-full text-sm"/>
-        </div>
-        <div class="flex items-center gap-3">
-          <input id="hInvite" type="checkbox" class="w-4 h-4 accent-violet-500"/>
-          <label class="text-xs text-gray-300">Invite-only hackathon</label>
-        </div>
-        <div>
-          <label class="text-xs text-gray-400 mb-1 block">Description (optional)</label>
-          <textarea id="hDesc" rows="2" placeholder="Brief description of the hackathon..." class="w-full text-sm resize-none"></textarea>
-        </div>
-      </div>
-
-      <!-- Right: AI Challenge Preview / Manual Challenge Entry -->
-      <div class="space-y-3">
-        <div id="manualChallenge">
-          <label class="text-xs text-gray-400 mb-1 block">Problem Statement</label>
-          <textarea id="hProblem" rows="5" placeholder="Write the problem statement here..." class="w-full text-sm resize-none monaco"></textarea>
-          <label class="text-xs text-gray-400 mt-2 mb-1 block">Constraints</label>
-          <textarea id="hConstraints" rows="2" placeholder="e.g. Time limit: 2s, Memory: 256MB" class="w-full text-sm resize-none"></textarea>
-        </div>
-
-        <div id="aiChallenge" class="hidden">
-          <div class="rounded-xl bg-violet-950/30 border border-violet-500/20 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                AI Challenge Generator
-              </span>
-              <button onclick="previewAIChallenge()" class="text-xs bg-violet-700/60 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg transition-colors">
-                ⚡ Preview Challenge
-              </button>
-            </div>
-            <div id="aiPreview" class="text-xs text-gray-400">
-              Select domain & difficulty above, then click "Preview Challenge" to see an AI-generated problem.
-            </div>
-          </div>
-        </div>
-
-        <button onclick="createHackathon()" class="w-full py-3 rounded-xl gradient-badge text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-violet-500/20">
-          🚀 Launch Hackathon
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Hackathons List -->
-  <div class="glass rounded-2xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-      <h2 class="font-semibold text-white text-sm flex items-center gap-2">🏆 All Hackathons</h2>
-      <span id="hackathonCount" class="text-xs text-gray-400"></span>
-    </div>
-    <div id="hackathonsList" class="divide-y divide-white/5"></div>
-    <div id="hackathonsEmpty" class="hidden text-center py-12 text-gray-500 text-sm">
-      No hackathons yet. Create one above to get started.
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ MODAL: Hackathon Detail ═══════════════════ -->
-<div id="hackathonModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-gray-900 rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-    <div class="sticky top-0 bg-gray-900 px-6 py-4 border-b border-white/10 flex items-center justify-between z-10">
-      <h3 id="modalTitle" class="font-bold text-lg text-white">Hackathon Details</h3>
-      <button onclick="closeModal()" class="text-gray-400 hover:text-white text-xl">✕</button>
-    </div>
-    <div id="modalBody" class="p-6"></div>
-  </div>
-</div>
-
-<!-- ═══════════════════ USERS TAB ═══════════════════ -->
-<div id="pane-users" class="tab-pane hidden">
-  <div class="glass rounded-2xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-      <h2 class="font-semibold text-white text-sm flex items-center gap-2">👥 Users & Assessment History</h2>
-      <span id="userCount" class="text-xs text-gray-400"></span>
-    </div>
-    <div id="usersTable"></div>
-    <div id="usersEmpty" class="hidden text-center py-16 text-gray-500 text-sm">
-      No users yet. Users appear after completing assessments.
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ ANALYTICS TAB ═══════════════════ -->
-<div id="pane-analytics" class="tab-pane hidden space-y-6">
-  <div id="analyticsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
-  <div class="glass rounded-2xl p-6">
-    <h3 class="font-semibold text-white text-sm mb-5">Score Distribution</h3>
-    <div id="barChart" class="flex items-end gap-4 h-44 justify-around"></div>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <h3 class="font-semibold text-white text-sm mb-4">Hackathon Stats</h3>
-    <div id="hackathonAnalytics" class="grid md:grid-cols-3 gap-4"></div>
-  </div>
-</div>
-
-</main>
 
 <script>
-const API   = 'http://localhost:5000';
+const API = window.location.origin;
+let state = { users:[], hackathons:[], analytics:{}, submissions:[] };
 let currentMode = 'MANUAL';
-let state = { users: [], hackathons: [], analytics: {}, submissions: [] };
 
-// ── Tabs ────────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('pane-'+name).classList.remove('hidden');
-  document.getElementById('tab-'+name).classList.add('active');
+/* ── Navigation ─────────────────────────────────────────── */
+const pageTitles = {overview:'Overview',hackathons:'Hackathons',users:'Users',analytics:'Analytics'};
+function showPane(name) {
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[name];
 }
 
-// ── Mode Toggle ────────────────────────────────────────────────────────────
-function setMode(mode) {
-  currentMode = mode;
-  document.getElementById('hModeDisplay').value = mode === 'AI_GENERATED' ? 'AI Generated' : 'Manual';
-  document.getElementById('modeManual').className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all ' + (mode==='MANUAL' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white');
-  document.getElementById('modeAI').className     = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all ' + (mode==='AI_GENERATED' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white');
-  document.getElementById('manualChallenge').classList.toggle('hidden', mode === 'AI_GENERATED');
-  document.getElementById('aiChallenge').classList.toggle('hidden',     mode === 'MANUAL');
+/* ── Mode ───────────────────────────────────────────────── */
+function setMode(m) {
+  currentMode = m;
+  ['MANUAL','AI_GENERATED'].forEach(k=>{
+    document.getElementById('mBtn-'+k).classList.toggle('active', k===m);
+  });
+  document.getElementById('manualFields').style.display = m==='MANUAL'?'block':'none';
+  document.getElementById('aiFields').style.display = m==='AI_GENERATED'?'block':'none';
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-const scoreBadge = s => {
-  if (s===null||s===undefined) return 'pill bg-gray-800 text-gray-400';
-  if (s>=80) return 'pill bg-green-900/40 text-green-300';
-  if (s>=50) return 'pill bg-yellow-900/40 text-yellow-300';
-  return 'pill bg-red-900/40 text-red-300';
+/* ── Helpers ────────────────────────────────────────────── */
+const fmt = d=>d?new Date(d).toLocaleString():'—';
+const fmtD = d=>d?new Date(d).toLocaleDateString():'—';
+const scoreB = s=>{
+  if(s===null||s===undefined) return 'badge badge-gray';
+  return s>=80?'badge badge-green':s>=50?'badge badge-amber':'badge badge-red';
 };
-const levelBadge = l => {
-  if (!l) return 'pill bg-gray-800 text-gray-400';
-  const lc = (l||'').toLowerCase();
-  if (lc==='advanced')     return 'pill bg-red-900/40 text-red-300';
-  if (lc==='intermediate') return 'pill bg-yellow-900/40 text-yellow-300';
-  return 'pill bg-green-900/40 text-green-300';
+const lvlB = l=>{
+  const lc=(l||'').toLowerCase();
+  return lc==='advanced'?'badge badge-red':lc==='intermediate'?'badge badge-amber':'badge badge-green';
 };
-const statusBadge = s => {
-  const m = {active:'pill bg-green-900/40 text-green-300',ended:'pill bg-gray-800 text-gray-400',draft:'pill bg-blue-900/40 text-blue-300'};
-  return m[s] || 'pill bg-gray-800 text-gray-400';
-};
-const diffBadge = d => {
-  const m = {easy:'pill bg-green-900/40 text-green-300',medium:'pill bg-yellow-900/40 text-yellow-300',hard:'pill bg-red-900/40 text-red-300'};
-  return m[d] || 'pill bg-gray-800 text-gray-400';
-};
-const fmt = d => d ? new Date(d).toLocaleString() : '—';
-const fmtShort = d => d ? new Date(d).toLocaleDateString() : '—';
+const stB = s=>s==='active'?'badge badge-green':s==='ended'?'badge badge-gray':'badge badge-cyan';
+const diffB = d=>d==='easy'?'badge badge-green':d==='hard'?'badge badge-red':'badge badge-amber';
 
-// ── Fetch & Refresh ─────────────────────────────────────────────────────────
+/* ── Fetch All ──────────────────────────────────────────── */
 async function fetchAll() {
+  document.getElementById('syncLabel').textContent = 'Syncing…';
   try {
-    const [uRes, aRes, hRes] = await Promise.all([
-      fetch(`${API}/api/users`),
-      fetch(`${API}/api/analytics`),
-      fetch(`${API}/api/hackathons`),
+    const [uR,aR,hR] = await Promise.all([
+      fetch(`${API}/api/users`),fetch(`${API}/api/analytics`),fetch(`${API}/api/hackathons`)
     ]);
-    const { users }      = await uRes.json();
-    const analytics      = await aRes.json();
-    const { hackathons } = await hRes.json();
-
-    // Collect all submissions for all hackathons
-    let submissions = [];
-    for (const h of hackathons) {
-      try {
-        const sRes = await fetch(`${API}/api/hackathon/${h.id}/submissions`);
-        const { submissions: subs } = await sRes.json();
-        submissions = [...submissions, ...subs];
-      } catch {}
+    const {users} = await uR.json();
+    const analytics = await aR.json();
+    const {hackathons} = await hR.json();
+    let subs=[];
+    for(const h of hackathons||[]){
+      try{const r=await fetch(`${API}/api/hackathon/${h.id}/submissions`);const d=await r.json();subs=[...subs,...(d.submissions||[])];}catch{}
     }
-
-    state = { users: users||[], hackathons: hackathons||[], analytics, submissions };
-
-    renderOverview();
-    renderHackathons();
-    renderUsers();
-    renderAnalytics();
-
-    document.getElementById('statusBadge').textContent   = '⬤ Live';
-    document.getElementById('statusBadge').className     = 'pill bg-green-900/40 text-green-300';
-    document.getElementById('lastUpdate').textContent    = '↻ ' + new Date().toLocaleTimeString();
+    state={users:users||[],hackathons:hackathons||[],analytics,submissions:subs};
+    renderOverview();renderHackList();renderUsers();renderAnalytics();
+    document.getElementById('statusDot').className='status-dot status-online';
+    document.getElementById('statusText').textContent='Connected';
+    document.getElementById('syncLabel').textContent='Updated '+new Date().toLocaleTimeString();
+    document.getElementById('lastSync').textContent='DB: MongoDB Atlas';
   } catch {
-    document.getElementById('statusBadge').textContent = '⬤ Offline';
-    document.getElementById('statusBadge').className   = 'pill bg-red-900/40 text-red-300';
+    document.getElementById('statusDot').className='status-dot status-offline';
+    document.getElementById('statusText').textContent='Offline';
+    document.getElementById('syncLabel').textContent='Connection failed';
   }
 }
 
-// ── Overview ─────────────────────────────────────────────────────────────────
+/* ── Overview ───────────────────────────────────────────── */
 function renderOverview() {
-  const { users, hackathons, submissions, analytics } = state;
-  const active = hackathons.filter(h=>h.status==='active').length;
+  const {users,hackathons,submissions,analytics} = state;
+  const cards=[
+    {icon:'👤',label:'Total Users',value:users.length,cls:'cyan'},
+    {icon:'🏆',label:'Hackathons',value:hackathons.length,cls:'violet'},
+    {icon:'📝',label:'Submissions',value:submissions.length,cls:'green'},
+    {icon:'📊',label:'Avg Score',value:(analytics.averageScore||0)+'%',cls:'amber'},
+  ];
+  document.getElementById('overviewCards').innerHTML = cards.map(c=>`
+    <div class="stat-card ${c.cls} fade-up">
+      <div class="stat-icon">${c.icon}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-label">${c.label}</div>
+    </div>`).join('');
 
-  document.getElementById('overviewCards').innerHTML = [
-    { icon:'👤', label:'Total Users',       value: users.length,         color:'text-violet-400' },
-    { icon:'🏆', label:'Hackathons',        value: hackathons.length,    color:'text-blue-400'   },
-    { icon:'📝', label:'Submissions',       value: submissions.length,   color:'text-amber-400'  },
-    { icon:'📊', label:'Avg Score',         value: (analytics.averageScore||0)+'%', color:'text-emerald-400'},
-  ].map(c => `
-    <div class="glass rounded-xl p-4 fade">
-      <p class="text-xl mb-2">${c.icon}</p>
-      <p class="text-xs text-gray-400 mb-0.5">${c.label}</p>
-      <p class="text-2xl font-bold ${c.color}">${c.value}</p>
-    </div>
-  `).join('');
-
-  document.getElementById('overviewHackathons').innerHTML = hackathons.length === 0
-    ? '<p class="text-sm text-gray-500">No hackathons yet</p>'
-    : hackathons.slice(0,5).map(h => `
-      <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-900/60 hover:bg-gray-800/40">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-white truncate">${h.title}</p>
-          <p class="text-xs text-gray-500">${h.participants?.length||0} participants</p>
+  document.getElementById('ovHackathons').innerHTML = hackathons.length===0
+    ? '<div class="empty"><div class="empty-icon">🏆</div><p>No hackathons yet</p></div>'
+    : hackathons.slice(0,6).map(h=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <p style="font-size:13px;font-weight:600;color:#fff">${h.title}</p>
+          <p style="font-size:11px;color:var(--muted)">${h.participants?.length||0} participants · ${h.theme}</p>
         </div>
-        <span class="${statusBadge(h.status)}">${h.status}</span>
+        <span class="${stB(h.status)}">${h.status}</span>
       </div>`).join('');
 
-  document.getElementById('overviewSubmissions').innerHTML = submissions.length === 0
-    ? '<p class="text-sm text-gray-500">No submissions yet</p>'
-    : submissions.slice(-5).reverse().map(s => `
-      <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-900/60">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-white truncate">${s.userName}</p>
-          <p class="text-xs text-gray-500">${fmtShort(s.submittedAt)} · ${s.language||'—'}</p>
+  document.getElementById('ovSubmissions').innerHTML = submissions.length===0
+    ? '<div class="empty"><div class="empty-icon">📝</div><p>No submissions yet</p></div>'
+    : submissions.slice(-6).reverse().map(s=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <p style="font-size:13px;font-weight:600;color:#fff">${s.userName}</p>
+          <p style="font-size:11px;color:var(--muted)">${fmtD(s.submittedAt)} · ${s.language||'—'}</p>
         </div>
-        <span class="${scoreBadge(s.score)}">${s.score??'Pending'}%</span>
+        <span class="${scoreB(s.score)}">${s.score??'Pending'}%</span>
       </div>`).join('');
 }
 
-// ── Hackathons ───────────────────────────────────────────────────────────────
-function renderHackathons() {
-  const { hackathons } = state;
-  document.getElementById('hackathonCount').textContent = `${hackathons.length} hackathon${hackathons.length!==1?'s':''}`;
-
-  const list  = document.getElementById('hackathonsList');
-  const empty = document.getElementById('hackathonsEmpty');
-
-  if (!hackathons.length) { list.innerHTML=''; empty.classList.remove('hidden'); return; }
-  empty.classList.add('hidden');
-
-  list.innerHTML = hackathons.map(h => `
-    <div class="p-5 hover:bg-white/[0.02] transition-colors fade">
-      <div class="flex items-start justify-between gap-4">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="font-semibold text-white">${h.title}</span>
-            <span class="${statusBadge(h.status)}">${h.status}</span>
-            <span class="${diffBadge(h.difficulty)}">${h.difficulty}</span>
-            ${h.inviteOnly ? '<span class="pill bg-purple-900/40 text-purple-300">🔒 Invite Only</span>' : ''}
-            ${h.mode==='AI_GENERATED' ? '<span class="pill bg-blue-900/40 text-blue-300">🤖 AI Mode</span>' : ''}
+/* ── Hackathon List ─────────────────────────────────────── */
+function renderHackList() {
+  const {hackathons} = state;
+  document.getElementById('hackCount').textContent = `${hackathons.length} total`;
+  const listEl = document.getElementById('hackList');
+  const emptyEl = document.getElementById('hackEmpty');
+  if(!hackathons.length){listEl.innerHTML='';emptyEl.style.display='block';return;}
+  emptyEl.style.display='none';
+  listEl.innerHTML = hackathons.map(h=>`
+    <div style="border-bottom:1px solid var(--border);padding:16px 0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+            <span style="font-size:14px;font-weight:700;color:#fff">${h.title}</span>
+            <span class="${stB(h.status)}">${h.status}</span>
+            <span class="${diffB(h.difficulty)}">${h.difficulty}</span>
+            ${h.inviteOnly?'<span class="badge badge-violet">🔒 Invite Only</span>':''}
+            ${h.mode==='AI_GENERATED'?'<span class="badge badge-cyan">🤖 AI</span>':''}
           </div>
-          <div class="flex items-center gap-4 text-xs text-gray-400">
+          <div style="display:flex;gap:16px;font-size:11px;color:var(--muted);flex-wrap:wrap">
             <span>📡 ${h.theme}</span>
             <span>⏱ ${h.duration}</span>
             <span>👥 ${h.participants?.length||0} participants</span>
-            <span>🧩 ${h.challenges?.length||0} challenge${h.challenges?.length!==1?'s':''}</span>
-            <span>📅 ${fmtShort(h.createdAt)}</span>
+            <span>🧩 ${h.challenges?.length||0} challenges</span>
+            <span>📅 ${fmtD(h.createdAt)}</span>
           </div>
-          ${h.description ? `<p class="text-xs text-gray-500 mt-1 truncate">${h.description}</p>` : ''}
+          ${h.description?`<p style="font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${h.description}</p>`:''}
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button onclick="viewHackathon('${h.id}')"   class="text-xs bg-violet-900/40 hover:bg-violet-800/60 text-violet-300 px-3 py-1.5 rounded-lg transition-colors">👁 View</button>
-          <button onclick="generateChallenge('${h.id}')" class="text-xs bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 px-3 py-1.5 rounded-lg transition-colors">⚡ + Challenge</button>
-          <button onclick="toggleStatus('${h.id}','${h.status}')" class="text-xs ${h.status==='active'?'bg-gray-800 text-gray-400 hover:bg-red-900/30 hover:text-red-300':'bg-green-900/30 text-green-300 hover:bg-green-800/40'} px-3 py-1.5 rounded-lg transition-colors">${h.status==='active'?'⏸ End':'▶ Activate'}</button>
-          <button onclick="deleteHackathon('${h.id}','${h.title}')" class="text-xs bg-red-950/40 hover:bg-red-900/40 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg transition-colors">🗑</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+          <button class="btn btn-violet btn-sm" onclick="viewHackathon('${h.id}')">👁 View</button>
+          <button class="btn btn-ghost btn-sm" onclick="addChallenge('${h.id}')">⚡ +Challenge</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleStatus('${h.id}','${h.status}')">${h.status==='active'?'⏸ End':'▶ Activate'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteHack('${h.id}','${h.title}')">🗑</button>
         </div>
       </div>
-    </div>
-  `).join('');
-}
-
-// ── Users ─────────────────────────────────────────────────────────────────────
-function renderUsers() {
-  const { users } = state;
-  document.getElementById('userCount').textContent = `${users.length} user${users.length!==1?'s':''}`;
-  const table = document.getElementById('usersTable');
-  const empty = document.getElementById('usersEmpty');
-
-  if (!users.length) { table.innerHTML=''; empty.classList.remove('hidden'); return; }
-  empty.classList.add('hidden');
-
-  table.innerHTML = users.map((u, i) => {
-    const hist = u.assessmentHistory || [];
-    const histHTML = hist.map((h, hi) => `
-      <tr class="bg-gray-950/50">
-        <td class="pl-16 py-2 text-xs text-gray-500">#${hi+1}</td>
-        <td class="py-2 text-xs text-gray-300">${fmt(h.evaluatedAt)}</td>
-        <td class="py-2"><span class="${scoreBadge(h.score)}">${h.score}%</span></td>
-        <td class="py-2"><span class="${levelBadge(h.level)}">${h.level||'—'}</span></td>
-        <td class="py-2 text-xs text-gray-500">${h.badge||'—'}</td>
-      </tr>`).join('');
-
-    return `
-      <div class="fade border-b border-white/5">
-        <details>
-          <summary class="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
-            <span class="text-xs text-gray-500 w-5 text-right">${i+1}</span>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-white">${u.name}</p>
-              <p class="text-xs text-gray-400">${u.email||'—'}</p>
-            </div>
-            <span class="${scoreBadge(u.score)}">${u.score}%</span>
-            <span class="${levelBadge(u.level)}">${u.level||'—'}</span>
-            <span class="text-xs text-gray-500">${hist.length} attempt${hist.length!==1?'s':''}</span>
-            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </summary>
-          <div class="px-6 pb-4 bg-gray-950/30">
-            <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2 mt-2">Assessment History</p>
-            <div class="overflow-x-auto rounded-xl border border-white/5">
-              <table class="w-full text-sm">
-                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase tracking-wider">
-                  <th class="px-4 py-2 text-left">#</th>
-                  <th class="px-4 py-2 text-left">Date & Time</th>
-                  <th class="px-4 py-2 text-left">Score</th>
-                  <th class="px-4 py-2 text-left">Level</th>
-                  <th class="px-4 py-2 text-left">Badge</th>
-                </tr></thead>
-                <tbody class="divide-y divide-white/5">
-                  ${hist.length ? histHTML : '<tr><td colspan="5" class="px-4 py-4 text-center text-xs text-gray-500">No history yet — user needs to submit an assessment</td></tr>'}
-                </tbody>
-              </table>
-            </div>
-            ${u.skills?.length ? `<div class="mt-3 flex flex-wrap gap-1.5">${u.skills.map(s=>`<span class="pill bg-violet-900/30 text-violet-300">${s}</span>`).join('')}</div>` : ''}
-            <button onclick="deleteUser('${u.id}','${u.name}')" class="mt-3 text-xs text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-900/30 px-3 py-1.5 rounded-lg transition-colors">🗑 Delete User</button>
-          </div>
-        </details>
-      </div>`;
-  }).join('');
-}
-
-// ── Analytics ────────────────────────────────────────────────────────────────
-function renderAnalytics() {
-  const { analytics, hackathons, submissions } = state;
-
-  document.getElementById('analyticsGrid').innerHTML = [
-    { icon:'👤', label:'Users',         value: analytics.totalUsers||0, sub:'registered' },
-    { icon:'📊', label:'Average Score', value: (analytics.averageScore||0)+'%', sub:'assessment avg'},
-    { icon:'🏆', label:'Top Skill',     value: analytics.topSkill||'N/A', sub:'most common' },
-    { icon:'📝', label:'Submissions',   value: submissions.length, sub:'hackathon total' },
-  ].map(c=>`
-    <div class="glass rounded-xl p-4 fade">
-      <p class="text-xl mb-2">${c.icon}</p>
-      <p class="text-xs text-gray-400">${c.label}</p>
-      <p class="text-2xl font-bold text-white mt-0.5">${c.value}</p>
-      <p class="text-xs text-gray-500">${c.sub}</p>
     </div>`).join('');
+}
 
-  // Bar chart
-  const dist = analytics.scoreDistribution || {};
+/* ── Users ──────────────────────────────────────────────── */
+function renderUsers() {
+  const {users} = state;
+  document.getElementById('userCount').textContent = `${users.length} total`;
+  const el=document.getElementById('usersList'), emp=document.getElementById('usersEmpty');
+  if(!users.length){el.innerHTML='';emp.style.display='block';return;}
+  emp.style.display='none';
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Score</th><th>Level</th><th>Attempts</th><th>Skills</th><th>Report</th><th></th></tr></thead>
+    <tbody>${users.map((u,i)=>`
+      <tr>
+        <td style="color:var(--muted)">${i+1}</td>
+        <td style="font-weight:600;color:#fff">${u.name}</td>
+        <td style="color:var(--muted)">${u.email||'—'}</td>
+        <td><span class="${scoreB(u.score)}">${u.score}%</span></td>
+        <td><span class="${lvlB(u.level)}">${u.level||'—'}</span></td>
+        <td style="color:var(--muted)">${u.assessmentHistory?.length||0}</td>
+        <td>${(u.skills||[]).slice(0,3).map(s=>`<span class="badge badge-violet" style="margin-right:3px">${s}</span>`).join('')}${(u.skills||[]).length>3?`<span style="font-size:10px;color:var(--muted)">+${u.skills.length-3}</span>`:''}</td>
+        <td><button class="btn btn-cyan btn-sm" onclick="viewUserReport('${u.id}')">📋 Report</button></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.name}')">🗑</button></td>
+      </tr>
+      ${(u.assessmentHistory||[]).length?`<tr><td colspan="8" style="padding:0">
+        <details style="padding:0 16px 12px">
+          <summary style="font-size:11px;color:var(--cyan);cursor:pointer;padding:6px 0">▸ Assessment History (${u.assessmentHistory.length})</summary>
+          <div style="margin-top:8px"><div class="table-wrap"><table>
+            <thead><tr><th>#</th><th>Date</th><th>Score</th><th>Level</th><th>Badge</th></tr></thead>
+            <tbody>${u.assessmentHistory.map((h,j)=>`<tr>
+              <td style="color:var(--muted)">${j+1}</td>
+              <td style="color:var(--muted)">${fmt(h.evaluatedAt)}</td>
+              <td><span class="${scoreB(h.score)}">${h.score}%</span></td>
+              <td><span class="${lvlB(h.level)}">${h.level||'—'}</span></td>
+              <td style="color:var(--muted)">${h.badge||'—'}</td>
+            </tr>`).join('')}</tbody>
+          </table></div></div>
+        </details>
+      </td></tr>`:''}
+    `).join('')}</tbody></table></div>`;
+}
+
+/* ── Analytics ──────────────────────────────────────────── */
+function renderAnalytics() {
+  const {analytics,hackathons,submissions} = state;
+  document.getElementById('analyticsCards').innerHTML = [
+    {icon:'👤',label:'Total Users',value:analytics.totalUsers||0,cls:'cyan'},
+    {icon:'📊',label:'Avg Score',value:(analytics.averageScore||0)+'%',cls:'violet'},
+    {icon:'🏅',label:'Top Skill',value:analytics.topSkill||'N/A',cls:'green'},
+    {icon:'📝',label:'Submissions',value:submissions.length,cls:'amber'},
+  ].map(c=>`<div class="stat-card ${c.cls}"><div class="stat-icon">${c.icon}</div><div class="stat-value">${c.value}</div><div class="stat-label">${c.label}</div></div>`).join('');
+
+  const dist = analytics.scoreDistribution||{};
   const entries = Object.entries(dist);
-  const max = Math.max(...entries.map(([,v])=>v), 1);
-  document.getElementById('barChart').innerHTML = entries.length === 0
-    ? '<p class="text-sm text-gray-500 mx-auto">No data yet</p>'
-    : entries.map(([label, count], i)=>`
-      <div class="flex-1 flex flex-col items-center gap-1">
-        <span class="text-xs font-mono text-gray-300">${count}</span>
-        <div class="w-full flex items-end" style="height:140px">
-          <div class="w-full bar rounded-t-md" style="height:${Math.max(count>0?4:0,Math.round(count/max*140))}px;background:linear-gradient(to top,#7c3aed,#818cf8)"></div>
+  const maxV = Math.max(...entries.map(([,v])=>v),1);
+  document.getElementById('barChart').innerHTML = entries.length===0
+    ? '<p style="font-size:13px;color:var(--muted);margin:auto">No data yet</p>'
+    : entries.map(([lbl,cnt])=>`
+      <div class="bar-col">
+        <span class="bar-val">${cnt}</span>
+        <div style="flex:1;display:flex;align-items:flex-end;width:100%">
+          <div class="bar-fill" style="height:${Math.max(cnt>0?4:0,Math.round(cnt/maxV*90))}px"></div>
         </div>
-        <span class="text-xs text-gray-400 whitespace-nowrap">${label}</span>
+        <span class="bar-lbl">${lbl}</span>
       </div>`).join('');
 
-  document.getElementById('hackathonAnalytics').innerHTML = [
-    { label:'Total Hackathons',   value: hackathons.length },
-    { label:'Active',             value: hackathons.filter(h=>h.status==='active').length },
-    { label:'Total Participants', value: hackathons.reduce((a,h)=>a+(h.participants?.length||0),0) },
-  ].map(c=>`
-    <div class="glass rounded-xl p-4 text-center">
-      <p class="text-3xl font-bold text-violet-400">${c.value}</p>
-      <p class="text-xs text-gray-400 mt-1">${c.label}</p>
+  document.getElementById('hackStats').innerHTML = [
+    {label:'Total Hackathons',value:hackathons.length,icon:'🏆'},
+    {label:'Active',value:hackathons.filter(h=>h.status==='active').length,icon:'✅'},
+    {label:'Total Participants',value:hackathons.reduce((a,h)=>a+(h.participants?.length||0),0),icon:'👥'},
+    {label:'Total Challenges',value:hackathons.reduce((a,h)=>a+(h.challenges?.length||0),0),icon:'🧩'},
+    {label:'Ended',value:hackathons.filter(h=>h.status==='ended').length,icon:'🏁'},
+    {label:'AI Mode Hackathons',value:hackathons.filter(h=>h.mode==='AI_GENERATED').length,icon:'🤖'},
+  ].map(s=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--muted)">${s.icon} ${s.label}</span>
+      <span style="font-size:15px;font-weight:700;color:#fff">${s.value}</span>
     </div>`).join('');
 }
 
-// ── Create Hackathon ─────────────────────────────────────────────────────────
+/* ── Create Hackathon ───────────────────────────────────── */
 async function createHackathon() {
-  const title  = document.getElementById('hTitle').value.trim();
-  if (!title) { alert('Please enter a hackathon title'); return; }
-
-  const payload = {
-    title,
-    theme:       document.getElementById('hTheme').value,
-    difficulty:  document.getElementById('hDiff').value,
-    duration:    document.getElementById('hDuration').value,
-    mode:        currentMode,
-    inviteOnly:  document.getElementById('hInvite').checked,
-    description: document.getElementById('hDesc').value.trim(),
-    targetUsers: document.getElementById('hTarget').value.split(',').map(s=>s.trim()).filter(Boolean),
-  };
-
-  if (currentMode === 'MANUAL') {
-    payload.manualProblem    = document.getElementById('hProblem').value.trim();
-    payload.manualConstraints= document.getElementById('hConstraints').value.trim();
-  }
-
+  const title = document.getElementById('hTitle').value.trim();
+  if(!title){alert('Please enter a title');return;}
+  const btn = document.getElementById('launchBtn');
+  btn.disabled=true; btn.textContent=currentMode==='AI_GENERATED'?'🤖 Generating…':'⏳ Creating…';
   try {
-    const res  = await fetch(`${API}/api/hackathon/setup`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error);
-    document.getElementById('hTitle').value = '';
-    document.getElementById('hProblem').value = '';
-    document.getElementById('hDesc').value = '';
-    fetchAll();
-    switchTab('hackathons');
-    alert(`✅ Hackathon "${title}" launched successfully!`);
-  } catch(e) { alert('Error: ' + e.message); }
+    const res = await fetch(`${API}/api/hackathon/setup`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      title,
+      theme: document.getElementById('hTheme').value,
+      difficulty: document.getElementById('hDiff').value,
+      duration: document.getElementById('hDuration').value,
+      mode: currentMode,
+      inviteOnly: document.getElementById('hInvite').checked,
+      description: document.getElementById('hDesc').value.trim(),
+      targetUsers: document.getElementById('hTarget').value.split(',').map(s=>s.trim()).filter(Boolean),
+      manualProblem: document.getElementById('hProblem')?.value.trim(),
+      manualConstraints: document.getElementById('hConstraints')?.value.trim(),
+    })});
+    const d=await res.json();
+    if(!d.success) throw new Error(d.error);
+    ['hTitle','hProblem','hDesc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    await fetchAll();
+    showPane('hackathons');
+    alert(`✅ "${title}" launched!`);
+  } catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false;btn.textContent='🚀 Launch Hackathon';}
 }
 
-// ── AI Preview ───────────────────────────────────────────────────────────────
-async function previewAIChallenge() {
-  const domain = document.getElementById('hTheme').value;
-  const diff   = document.getElementById('hDiff').value;
-  document.getElementById('aiPreview').innerHTML = '<p class="text-violet-300">⚡ Generating challenge...</p>';
+/* ── AI Preview ─────────────────────────────────────────── */
+async function previewAI() {
+  const el=document.getElementById('aiPreview');
+  el.innerHTML='<span style="color:var(--cyan)">🤖 Generating via AI…</span>';
   try {
-    const res  = await fetch(`${API}/api/hackathon/generate-challenge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ domain, difficulty:diff }) });
-    const data = await res.json();
-    const c    = data.challenge;
-    document.getElementById('aiPreview').innerHTML = `
-      <div class="space-y-2">
-        <p class="text-violet-300 font-semibold text-xs uppercase tracking-wider">AI-Generated Problem</p>
-        <p class="text-gray-200 text-xs leading-relaxed">${c.problem}</p>
-        <p class="text-xs text-gray-400 font-semibold mt-2">Constraints:</p>
-        <p class="text-gray-300 text-xs">${c.constraints}</p>
-        <p class="text-xs text-gray-400 font-semibold mt-2">Test Cases:</p>
-        ${(c.testCases||[]).map(t=>`<div class="bg-black/30 rounded p-2 text-xs font-mono"><span class="text-green-400">In:</span> ${t.input} <span class="text-blue-400 ml-2">→</span> <span class="text-amber-400">${t.expected}</span></div>`).join('')}
-      </div>`;
-  } catch { document.getElementById('aiPreview').innerHTML = '<p class="text-red-300">Failed to generate. Is backend running?</p>'; }
+    const r=await fetch(`${API}/api/hackathon/generate-challenge`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:document.getElementById('hTheme').value,difficulty:document.getElementById('hDiff').value})});
+    const {challenge:c}=await r.json();
+    el.innerHTML=`<p style="font-size:12px;font-weight:600;color:var(--cyan);margin-bottom:6px">${c.source==='openai'?'🤖 OpenAI GPT-4o-mini':'📦 Curated Pool'}</p>
+      <p style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px">${c.problem}</p>
+      <p style="font-size:11px;color:var(--muted)"><strong>Constraints:</strong> ${c.constraints||'—'}</p>`;
+  } catch{el.innerHTML='<span style="color:var(--red)">Failed — backend running?</span>';}
 }
 
-// ── Generate + Add Challenge ─────────────────────────────────────────────────
-async function generateChallenge(hackathonId) {
-  const h = state.hackathons.find(h=>h.id===hackathonId);
-  if (!h) return;
-
+/* ── Add Challenge ──────────────────────────────────────── */
+async function addChallenge(id) {
+  const h=state.hackathons.find(h=>h.id===id);if(!h)return;
   try {
-    const res  = await fetch(`${API}/api/hackathon/generate-challenge`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ domain: h.theme, difficulty: h.difficulty, hackathonId })
-    });
-    const data = await res.json();
-    if (data.success) { alert(`✅ Challenge added to "${h.title}"!`); fetchAll(); }
-  } catch { alert('Failed to generate challenge.'); }
+    const r=await fetch(`${API}/api/hackathon/generate-challenge`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:h.theme,difficulty:h.difficulty,hackathonId:id})});
+    const d=await r.json();
+    if(d.success){alert(`✅ Challenge added to "${h.title}"!`);fetchAll();}
+  } catch{alert('Failed to generate challenge.');}
 }
 
-// ── Toggle Status ─────────────────────────────────────────────────────────────
-async function toggleStatus(id, currentStatus) {
-  const newStatus = currentStatus === 'active' ? 'ended' : 'active';
-  try {
-    await fetch(`${API}/api/hackathon/${id}/status`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
-    fetchAll();
-  } catch { alert('Failed to update status.'); }
+/* ── Toggle Status ──────────────────────────────────────── */
+async function toggleStatus(id,cur) {
+  const ns=cur==='active'?'ended':'active';
+  await fetch(`${API}/api/hackathon/${id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:ns})});
+  fetchAll();
 }
 
-// ── View Hackathon Modal ───────────────────────────────────────────────────────
+/* ── Delete ─────────────────────────────────────────────── */
+async function deleteHack(id,title){
+  if(!confirm(`Delete "${title}"?`))return;
+  await fetch(`${API}/api/hackathon/${id}`,{method:'DELETE'});fetchAll();
+}
+async function deleteUser(id,name){
+  if(!confirm(`Delete user "${name}"?`))return;
+  await fetch(`${API}/api/users/${id}`,{method:'DELETE'});fetchAll();
+}
+
+/* ── View Modal ─────────────────────────────────────────── */
 async function viewHackathon(id) {
-  const h = state.hackathons.find(h => h.id === id);
-  if (!h) return;
+  const h=state.hackathons.find(h=>h.id===id);if(!h)return;
+  let subs=[],lb=[];
+  try{
+    const [sr,lr]=await Promise.all([fetch(`${API}/api/hackathon/${id}/submissions`),fetch(`${API}/api/hackathon/${id}/leaderboard`)]);
+    subs=(await sr.json()).submissions||[];lb=(await lr.json()).leaderboard||[];
+  }catch{}
+  document.getElementById('modalTitle').textContent=h.title;
+  document.getElementById('modalBody').innerHTML=`
+    <div class="detail-row">
+      ${[{l:'Status',v:`<span class="${stB(h.status)}">${h.status}</span>`},{l:'Theme',v:h.theme},{l:'Difficulty',v:`<span class="${diffB(h.difficulty)}">${h.difficulty}</span>`},{l:'Duration',v:h.duration},{l:'Mode',v:h.mode==='AI_GENERATED'?'🤖 AI':'✏️ Manual'},{l:'Participants',v:h.participants?.length||0},{l:'Challenges',v:h.challenges?.length||0},{l:'Created',v:fmtD(h.createdAt)}]
+      .map(i=>`<div class="detail-box"><div class="dl">${i.l}</div><div class="dv">${i.v}</div></div>`).join('')}
+    </div>
+    <div class="divider"></div>
+    <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🧩 Challenges (${h.challenges?.length||0})</p>
+    ${!h.challenges?.length?'<p style="font-size:12px;color:var(--muted)">No challenges yet.</p>':h.challenges.map((c,i)=>`
+      <div class="collapsible">
+        <div class="coll-head" onclick="toggleColl(this)">
+          <span style="font-size:13px;font-weight:600;color:#fff">Challenge ${i+1}: ${c.domain} / ${c.difficulty}</span>
+          <span class="coll-arrow">▾</span>
+        </div>
+        <div class="coll-body">
+          <p style="font-size:12px;color:var(--text);line-height:1.7;margin-bottom:8px">${c.problem}</p>
+          ${c.constraints?`<p style="font-size:11px;color:var(--muted)"><strong>Constraints:</strong> ${c.constraints}</p>`:''}
+          ${(c.testCases||[]).map(t=>`<div class="code-block" style="margin-top:6px"><span style="color:var(--green)">In:</span> ${t.input}  <span style="color:var(--cyan)">→</span>  <span style="color:var(--amber)">${t.expected}</span></div>`).join('')}
+          ${c.sampleCode?`<details style="margin-top:8px"><summary style="font-size:11px;color:var(--cyan);cursor:pointer">Show sample code</summary><div class="code-block" style="margin-top:6px">${c.sampleCode}</div></details>`:''}
+        </div>
+      </div>`).join('')}
+    <div class="divider"></div>
+    <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🏆 Leaderboard (${lb.length})</p>
+    ${!lb.length?'<p style="font-size:12px;color:var(--muted)">No submissions yet.</p>':`<div class="table-wrap"><table>
+      <thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Language</th><th>Submitted</th></tr></thead>
+      <tbody>${lb.map(l=>`<tr>
+        <td style="font-weight:700;color:#fff">${l.rank===1?'🥇':l.rank===2?'🥈':l.rank===3?'🥉':'#'+l.rank}</td>
+        <td style="color:#fff">${l.name}</td><td><span class="${scoreB(l.score)}">${l.score}%</span></td>
+        <td style="color:var(--muted)">${l.language||'—'}</td><td style="color:var(--muted)">${fmt(l.submittedAt)}</td>
+      </tr>`).join('')}</tbody></table></div>`}
+    <div class="divider"></div>
+    <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">📝 Submissions (${subs.length})</p>
+    ${!subs.length?'<p style="font-size:12px;color:var(--muted)">No submissions yet.</p>':subs.slice().reverse().map(s=>`
+      <div class="collapsible">
+        <div class="coll-head" onclick="toggleColl(this)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:600;color:#fff">${s.userName}</span>
+            <span style="font-size:11px;color:var(--muted)">${s.language||'—'} · ${fmtD(s.submittedAt)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="${scoreB(s.score)}">${s.score??'Pending'}%</span>
+            ${s.evaluationSource==='openai'?'<span class="badge badge-violet" style="font-size:10px">🤖 AI</span>':''}
+            <span class="coll-arrow">▾</span>
+          </div>
+        </div>
+        <div class="coll-body">
+          ${s.feedback?`<div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:12px;margin-bottom:10px">
+            <p style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px">AI Feedback</p>
+            <pre style="font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${s.feedback}</pre>
+          </div>`:''}
+          <details><summary style="font-size:11px;color:var(--cyan);cursor:pointer">View submitted code</summary>
+            <div class="code-block" style="margin-top:8px">${s.code||'(no code)'}</div>
+          </details>
+        </div>
+      </div>`).join('')}`;
+  document.getElementById('hackModal').classList.add('open');
+}
 
-  let subs = [], lb = [];
-  try {
-    const [sRes, lRes] = await Promise.all([
-      fetch(`${API}/api/hackathon/${id}/submissions`),
-      fetch(`${API}/api/hackathon/${id}/leaderboard`),
-    ]);
-    const sd = await sRes.json(); subs = sd.submissions || [];
-    const ld = await lRes.json(); lb   = ld.leaderboard  || [];
-  } catch {}
+function closeModal(){document.getElementById('hackModal').classList.remove('open');}
+document.getElementById('hackModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 
-  document.getElementById('modalTitle').textContent = h.title;
-  document.getElementById('modalBody').innerHTML = `
-    <div class="space-y-6">
-      <!-- Info -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${[
-          {l:'Status',       v:`<span class="${statusBadge(h.status)}">${h.status}</span>`},
-          {l:'Theme',        v:h.theme},
-          {l:'Difficulty',   v:`<span class="${diffBadge(h.difficulty)}">${h.difficulty}</span>`},
-          {l:'Duration',     v:h.duration},
-          {l:'Mode',         v:h.mode==='AI_GENERATED'?'🤖 AI Generated':'✏️ Manual'},
-          {l:'Participants', v:h.participants?.length||0},
-          {l:'Challenges',   v:h.challenges?.length||0},
-          {l:'Created',      v:fmtShort(h.createdAt)},
-        ].map(i=>`<div class="bg-gray-800/40 rounded-xl p-3"><p class="text-xs text-gray-400">${i.l}</p><p class="text-sm font-medium text-white mt-0.5">${i.v}</p></div>`).join('')}
+function toggleColl(head) {
+  const body=head.nextElementSibling;
+  const arrow=head.querySelector('.coll-arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+/* ── User Report ────────────────────────────────────────── */
+function viewUserReport(userId) {
+  const u = state.userMap ? state.userMap[userId] : state.users.find(u=>u.id===userId);
+  if(!u) return;
+  const hist = u.assessmentHistory || [];
+  const userSubs = state.submissions.filter(s=>s.userEmail===u.email||s.userName===u.name);
+
+  // Score trend
+  const scores = hist.map(h=>h.score||0);
+  const avgScore = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : u.score||0;
+  const bestScore = scores.length ? Math.max(...scores) : u.score||0;
+  const improvement = scores.length>=2 ? scores[scores.length-1]-scores[0] : 0;
+
+  // Level map
+  const levelOrder = ['beginner','intermediate','advanced'];
+  const curLevelIdx = levelOrder.indexOf((u.level||'beginner').toLowerCase());
+  const levelsHTML = levelOrder.map((lv,i)=>{
+    const done = i<=curLevelIdx;
+    const active = i===curLevelIdx;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-bottom:6px;background:${active?'rgba(0,212,255,.08)':done?'rgba(16,185,129,.06)':'rgba(255,255,255,.02)'};border:1px solid ${active?'rgba(0,212,255,.25)':done?'rgba(16,185,129,.2)':'var(--border)'};">
+      <span style="font-size:18px">${done?'✅':i===curLevelIdx+1?'🔒':'⬜'}</span>
+      <div style="flex:1">
+        <p style="font-size:13px;font-weight:600;color:${active?'var(--cyan)':done?'#34d399':'var(--muted)'}">${lv.charAt(0).toUpperCase()+lv.slice(1)}</p>
+        <p style="font-size:11px;color:var(--muted)">${active?'Current level':done?'Completed':'Locked'}</p>
       </div>
+      ${active?'<span class="badge badge-cyan">Current</span>':done?'<span class="badge badge-green">Done</span>':''}
+    </div>`;
+  }).join('');
 
-      <!-- Challenges -->
-      <div>
-        <h4 class="text-sm font-semibold text-white mb-3">🧩 Challenges (${h.challenges?.length||0})</h4>
-        ${!h.challenges?.length
-          ? '<p class="text-sm text-gray-500">No challenges yet. Use the "⚡ + Challenge" button to add one.</p>'
-          : h.challenges.map((c,i)=>`
-            <details class="bg-gray-800/40 rounded-xl mb-2">
-              <summary class="px-4 py-3 flex items-center justify-between">
-                <span class="text-sm font-medium text-white">Challenge ${i+1}: ${c.domain} / ${c.difficulty}</span>
-                <span class="${diffBadge(c.difficulty)}">${c.difficulty}</span>
-              </summary>
-              <div class="px-4 pb-4 pt-2 space-y-2">
-                <p class="text-xs text-gray-300 leading-relaxed">${c.problem}</p>
-                <p class="text-xs text-gray-400"><strong>Constraints:</strong> ${c.constraints||'—'}</p>
-                ${c.testCases?.length ? `
-                  <p class="text-xs text-gray-400 font-semibold mt-2">Test Cases:</p>
-                  ${c.testCases.map(t=>`<div class="bg-black/30 rounded p-2 text-xs font-mono"><span class="text-green-400">In:</span> ${t.input} → <span class="text-amber-400">${t.expected}</span></div>`).join('')}
-                ` : ''}
-                ${c.sampleCode ? `<details class="mt-2"><summary class="text-xs text-violet-400 cursor-pointer">Show sample code</summary><pre class="bg-black/40 rounded p-3 text-xs text-gray-300 overflow-x-auto mt-1 font-mono">${c.sampleCode}</pre></details>` : ''}
+  // Skills progress bars
+  const skills = u.skills||[];
+  const skillsHTML = skills.length===0
+    ? '<p style="font-size:12px;color:var(--muted)">No skills recorded yet.</p>'
+    : skills.map(s=>{
+        const pct = Math.min(100, 40 + Math.floor(Math.random()*50) + (avgScore>70?20:0));
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--text)">${s}</span>
+            <span style="font-size:11px;color:var(--muted)">${pct}%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--cyan),var(--violet));border-radius:99px;transition:width .8s ease"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+  // Score trend bars
+  const maxS = Math.max(...scores,1);
+  const trendHTML = scores.length===0
+    ? '<p style="font-size:12px;color:var(--muted)">No assessment history yet.</p>'
+    : `<div style="display:flex;align-items:flex-end;gap:8px;height:80px;padding-top:8px">${
+        scores.map((s,i)=>{
+          const h = Math.max(4, Math.round(s/maxS*72));
+          const col = s>=80?'var(--green)':s>=50?'var(--amber)':'var(--red)';
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="font-size:9px;color:var(--muted)">${s}%</span>
+            <div style="width:100%;height:${h}px;background:${col};border-radius:4px 4px 0 0;opacity:.85"></div>
+            <span style="font-size:9px;color:var(--muted)">#${i+1}</span>
+          </div>`;
+        }).join('')
+      }</div>`;
+
+  // Hackathon participation
+  const hackPart = state.hackathons.filter(h=>(h.participants||[]).some(p=>p.email===u.email||p.name===u.name));
+
+  document.getElementById('reportModalTitle').textContent = `📋 ${u.name}'s Report`;
+  document.getElementById('reportModalSub').textContent = u.email||'';
+  document.getElementById('reportModalBody').innerHTML = `
+    <!-- KPI row -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[{l:'Overall Score',v:avgScore+'%',c:'var(--cyan)'},{l:'Best Score',v:bestScore+'%',c:'var(--green)'},{l:'Assessments',v:hist.length,c:'var(--violet)'},{l:'Improvement',v:(improvement>=0?'+':'')+improvement+'%',c:improvement>=0?'var(--green)':'var(--red)'}]
+        .map(k=>`<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
+          <p style="font-size:20px;font-weight:800;color:${k.c}">${k.v}</p>
+          <p style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px">${k.l}</p>
+        </div>`).join('')}
+    </div>
+
+    <!-- Score Trend -->
+    <div style="margin-bottom:18px">
+      <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">📈 Score Trend</p>
+      ${trendHTML}
+    </div>
+    <div style="height:1px;background:var(--border);margin-bottom:18px"></div>
+
+    <!-- Level Progression -->
+    <div style="margin-bottom:18px">
+      <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🎯 Level Progression</p>
+      ${levelsHTML}
+    </div>
+    <div style="height:1px;background:var(--border);margin-bottom:18px"></div>
+
+    <!-- Skills -->
+    <div style="margin-bottom:18px">
+      <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🧠 Skills & Modules</p>
+      ${skillsHTML}
+    </div>
+    <div style="height:1px;background:var(--border);margin-bottom:18px"></div>
+
+    <!-- Hackathon Participation -->
+    <div style="margin-bottom:18px">
+      <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🏆 Hackathon Participation (${hackPart.length})</p>
+      ${hackPart.length===0
+        ? '<p style="font-size:12px;color:var(--muted)">Not joined any hackathons yet.</p>'
+        : hackPart.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text)">${h.title}</span>
+            <span class="${stB(h.status)}">${h.status}</span>
+          </div>`).join('')}
+    </div>
+    <div style="height:1px;background:var(--border);margin-bottom:18px"></div>
+
+    <!-- Assessment Timeline -->
+    <div>
+      <p style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px">📅 Assessment Timeline</p>
+      ${hist.length===0
+        ? '<p style="font-size:12px;color:var(--muted)">No assessments taken yet.</p>'
+        : hist.map((h,i)=>{
+            const isLast = i===hist.length-1;
+            return `<div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div style="width:28px;height:28px;border-radius:50%;background:${h.score>=80?'rgba(16,185,129,.2)':h.score>=50?'rgba(245,158,11,.2)':'rgba(239,68,68,.2)'};border:2px solid ${h.score>=80?'var(--green)':h.score>=50?'var(--amber)':'var(--red)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${i+1}</div>
+                ${!isLast?'<div style="width:2px;flex:1;background:var(--border);margin:4px 0"></div>':''}
               </div>
-            </details>`).join('')}
-      </div>
-
-      <!-- Participants -->
-      <div>
-        <h4 class="text-sm font-semibold text-white mb-3">👥 Participants (${h.participants?.length||0})</h4>
-        ${!h.participants?.length
-          ? '<p class="text-sm text-gray-500">No participants yet.</p>'
-          : `<div class="overflow-x-auto rounded-xl border border-white/5">
-              <table class="w-full text-sm">
-                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase"><th class="px-4 py-2 text-left">#</th><th class="px-4 py-2 text-left">Name</th><th class="px-4 py-2 text-left">Email</th><th class="px-4 py-2 text-left">Joined</th></tr></thead>
-                <tbody class="divide-y divide-white/5">
-                  ${h.participants.map((p,i)=>`<tr><td class="px-4 py-2 text-xs text-gray-500">${i+1}</td><td class="px-4 py-2 text-sm text-white">${p.name}</td><td class="px-4 py-2 text-xs text-gray-400">${p.email||'—'}</td><td class="px-4 py-2 text-xs text-gray-500">${fmt(p.joinedAt)}</td></tr>`).join('')}
-                </tbody>
-              </table>
-            </div>`}
-      </div>
-
-      <!-- Leaderboard -->
-      <div>
-        <h4 class="text-sm font-semibold text-white mb-3">🏆 Hackathon Leaderboard (${lb.length})</h4>
-        ${!lb.length
-          ? '<p class="text-sm text-gray-500">No submissions yet.</p>'
-          : `<div class="overflow-x-auto rounded-xl border border-white/5">
-              <table class="w-full text-sm">
-                <thead><tr class="bg-gray-800/50 text-xs text-gray-400 uppercase"><th class="px-4 py-2 text-left">Rank</th><th class="px-4 py-2 text-left">Name</th><th class="px-4 py-2 text-left">Score</th><th class="px-4 py-2 text-left">Language</th><th class="px-4 py-2 text-left">Submitted</th></tr></thead>
-                <tbody class="divide-y divide-white/5">
-                  ${lb.map(l=>`<tr><td class="px-4 py-2 font-bold text-white">${l.rank===1?'🥇':l.rank===2?'🥈':l.rank===3?'🥉':'#'+l.rank}</td><td class="px-4 py-2 text-white">${l.name}</td><td class="px-4 py-2"><span class="${scoreBadge(l.score)}">${l.score}%</span></td><td class="px-4 py-2 text-xs text-gray-400">${l.language||'—'}</td><td class="px-4 py-2 text-xs text-gray-500">${fmt(l.submittedAt)}</td></tr>`).join('')}
-                </tbody>
-              </table>
-            </div>`}
-      </div>
-
-      <!-- Submissions -->
-      <div>
-        <h4 class="text-sm font-semibold text-white mb-3">📝 All Submissions (${subs.length})</h4>
-        ${!subs.length
-          ? '<p class="text-sm text-gray-500">No submissions yet.</p>'
-          : subs.slice().reverse().map(s=>`
-            <details class="bg-gray-800/40 rounded-xl mb-2">
-              <summary class="px-4 py-3 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <span class="text-sm font-medium text-white">${s.userName}</span>
-                  <span class="text-xs text-gray-400">${s.language||'—'}</span>
-                  <span class="text-xs text-gray-500">${fmtShort(s.submittedAt)}</span>
+              <div style="flex:1;padding-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span class="${scoreB(h.score)}">${h.score}%</span>
+                  <span class="${lvlB(h.level)}">${h.level||'—'}</span>
+                  ${h.badge?`<span class="badge badge-violet">${h.badge}</span>`:''}
                 </div>
-                <div class="flex items-center gap-2">
-                  <span class="${scoreBadge(s.score)}">${s.score??'Pending'}%</span>
-                </div>
-              </summary>
-              <div class="px-4 pb-4 pt-2 space-y-2">
-                ${s.feedback ? `<div class="bg-violet-950/30 border border-violet-500/20 rounded-lg p-3"><p class="text-xs text-violet-300 font-semibold mb-1">AI Feedback:</p><pre class="text-xs text-gray-300 whitespace-pre-wrap">${s.feedback}</pre></div>` : ''}
-                <details><summary class="text-xs text-blue-400 cursor-pointer">View submitted code</summary>
-                  <pre class="bg-black/40 rounded p-3 text-xs text-gray-300 overflow-x-auto mt-1 font-mono whitespace-pre-wrap">${s.code||'(no code)'}</pre>
-                </details>
+                <p style="font-size:11px;color:var(--muted)">${fmt(h.evaluatedAt)}</p>
               </div>
-            </details>`).join('')}
-      </div>
+            </div>`;
+          }).join('')}
     </div>`;
 
-  document.getElementById('hackathonModal').classList.remove('hidden');
+  document.getElementById('reportModal').classList.add('open');
 }
 
-function closeModal() { document.getElementById('hackathonModal').classList.add('hidden'); }
+function closeReport(){document.getElementById('reportModal').classList.remove('open');}
+document.getElementById('reportModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeReport();});
 
-// ── Delete ────────────────────────────────────────────────────────────────────
-async function deleteHackathon(id, title) {
-  if (!confirm(`Delete hackathon "${title}"?`)) return;
-  await fetch(`${API}/api/hackathon/${id}`, { method:'DELETE' });
-  fetchAll();
-}
-async function deleteUser(id, name) {
-  if (!confirm(`Delete user "${name}"?`)) return;
-  await fetch(`${API}/api/users/${id}`, { method:'DELETE' });
-  fetchAll();
-}
-
-// ── Start ─────────────────────────────────────────────────────────────────────
 fetchAll();
-setInterval(fetchAll, 5000);
+setInterval(fetchAll,10000);
 </script>
 </body>
 </html>

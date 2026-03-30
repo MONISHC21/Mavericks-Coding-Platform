@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { usePlatformStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-const API = "http://localhost:5000";
+const API = ""; // uses Vite proxy: /api → localhost:5000
 
 // Types
 interface Challenge {
@@ -456,7 +456,7 @@ export default function HackathonPage() {
             <Trophy className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4"/>
             <h2 className="font-display text-xl font-semibold text-foreground mb-2">No Active Hackathons</h2>
             <p className="text-muted-foreground text-sm mb-6">Hackathons will appear here once an admin creates them.</p>
-            <p className="text-xs text-muted-foreground">Admin panel → <a href="http://localhost:5000/admin" target="_blank" className="text-primary underline">localhost:5000/admin</a></p>
+            <p className="text-xs text-muted-foreground">Admin panel → <a href="/admin" target="_blank" className="text-primary underline">/admin</a></p>
           </div>
         ) : (
           <div className="space-y-6">

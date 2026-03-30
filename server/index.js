@@ -1,48 +1,149 @@
 /**
- * Mavericks Coding Platform — Backend v3
+ * Mavericks Coding Platform — Backend v4 (MongoDB Edition)
  *
- * NEW: Full Hackathon Agent System
- *   POST /api/hackathon/setup           — create hackathon
- *   POST /api/hackathon/generate-challenge — AI-generate challenge
- *   GET  /api/hackathons                — list all hackathons
- *   GET  /api/hackathon/:id             — single hackathon
- *   POST /api/hackathon/:id/join        — user joins hackathon
+ * Database: MongoDB via Mongoose — all JSON file DB removed
+ * All existing API endpoints preserved with identical response shapes:
+ *
+ *   GET  /api/health
+ *   GET  /admin
+ *   POST /api/users
+ *   GET  /api/users
+ *   GET  /api/users/:id/history
+ *   DELETE /api/users/:id
+ *   GET  /api/leaderboard
+ *   GET  /api/analytics
+ *   POST /api/hackathon/setup
+ *   POST /api/hackathon/generate-challenge
+ *   GET  /api/hackathons
+ *   GET  /api/hackathon/:id
+ *   DELETE /api/hackathon/:id
+ *   PATCH /api/hackathon/:id/status
+ *   POST /api/hackathon/:id/join
  *   GET  /api/hackathon/:id/participants
- *   POST /api/hackathon/submit          — submit code
- *   POST /api/hackathon/evaluate        — AI evaluate submission
+ *   POST /api/hackathon/submit
+ *   POST /api/hackathon/evaluate
  *   GET  /api/hackathon/:id/submissions
  *   GET  /api/hackathon/:id/leaderboard
- *   DELETE /api/hackathon/:id
- *
- * FIX: Assessment history now correctly appended per submission
- * Admin Panel: GET /admin  (served from server/admin.html)
  */
 
 import express from "express";
-import cors    from "cors";
-import fs      from "fs";
-import path    from "path";
+import cors from "cors";
+import fs from "fs";
+import path from "path";
 import { fileURLToPath } from "url";
+import OpenAI from "openai";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+// ─── Environment Configuration ────────────────────────────────────────────────
+dotenv.config();
+
+
+// ─── OpenAI Client ────────────────────────────────────────────────────────────
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "sk-dummy-key-for-local-dev";
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+function isQuotaError(err) {
+  return err?.status === 429 || err?.code === "insufficient_quota" ||
+    (err?.message && /rate.?limit|quota|billing/i.test(err.message));
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_FILE   = path.join(__dirname, "db.json");
-const PORT      = 5000;
+const PORT = 5000;
 
-// ─── JSON File Database ───────────────────────────────────────────────────────
-function readDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ users: [], hackathons: [], submissions: [] }, null, 2));
-  }
-  try {
-    const db = JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
-    if (!db.hackathons)  db.hackathons  = [];
-    if (!db.submissions) db.submissions = [];
-    return db;
-  } catch { return { users: [], hackathons: [], submissions: [] }; }
-}
-function writeDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
+// ─── MongoDB Connection ───────────────────────────────────────────────────────
+// ─── MongoDB Connection ───────────────────────────────────────────────────────
+const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017/mavericks";
+
+mongoose.connect(MONGO_URL, { serverSelectionTimeoutMS: 8000 })
+  .then(() => console.log("[MongoDB] Connected successfully"))
+  .catch(err => {
+    console.error("[MongoDB] Connection failed — running in DEGRADED mode (no DB):", err.message);
+    console.error("[MongoDB] Fix: Go to MongoDB Atlas → Network Access → Add your current IP to the whitelist.");
+    // Do NOT exit — let the API server keep running so Vite proxy still works
+  });
+
+// ─── Mongoose Schemas & Models ────────────────────────────────────────────────
+const assessmentHistSchema = new mongoose.Schema({
+  score: Number,
+  level: String,
+  badge: String,
+  evaluatedAt: String,
+}, { _id: false });
+
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  email: { type: String, default: "" },
+  score: { type: Number, default: 0 },
+  level: { type: String, default: "Beginner" },
+  skills: { type: [String], default: [] },
+  badge: { type: String, default: "" },
+  assessmentCount: { type: Number, default: 1 },
+  assessmentHistory: { type: [assessmentHistSchema], default: [] },
+  evaluatedAt: String,
+  createdAt: String,
+  updatedAt: String,
+});
+
+const challengeSchema = new mongoose.Schema({
+  id: String,
+  domain: String,
+  difficulty: String,
+  problem: String,
+  constraints: String,
+  inputFormat: String,
+  outputFormat: String,
+  testCases: { type: mongoose.Schema.Types.Mixed, default: [] },
+  sampleCode: String,
+  aiGenerated: Boolean,
+  source: String,
+  generatedAt: String,
+}, { _id: false });
+
+const participantSchema = new mongoose.Schema({
+  name: String,
+  email: { type: String, default: "" },
+  joinedAt: String,
+}, { _id: false });
+
+const hackathonSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  title: String,
+  theme: { type: String, default: "General" },
+  duration: { type: String, default: "48h" },
+  difficulty: { type: String, default: "medium" },
+  targetUsers: { type: [String], default: [] },
+  mode: { type: String, default: "MANUAL" },
+  inviteOnly: { type: Boolean, default: false },
+  description: { type: String, default: "" },
+  status: { type: String, default: "active" },
+  challenges: { type: [challengeSchema], default: [] },
+  participants: { type: [participantSchema], default: [] },
+  createdAt: String,
+  updatedAt: String,
+});
+
+const submissionSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: String,
+  userName: { type: String, default: "Anonymous" },
+  userEmail: { type: String, default: "" },
+  hackathonId: String,
+  challengeId: String,
+  code: String,
+  language: { type: String, default: "python" },
+  status: { type: String, default: "pending" },
+  score: { type: mongoose.Schema.Types.Mixed, default: null },
+  feedback: { type: mongoose.Schema.Types.Mixed, default: null },
+  evaluationSource: String,
+  submittedAt: String,
+  evaluatedAt: String,
+});
+
+const User = mongoose.model("User", userSchema);
+const Hackathon = mongoose.model("Hackathon", hackathonSchema);
+const Submission = mongoose.model("Submission", submissionSchema);
 
 // ─── AI Challenge Generator (Simulated / Template-based) ─────────────────────
 const CHALLENGE_POOL = {
@@ -55,7 +156,7 @@ const CHALLENGE_POOL = {
         outputFormat: "ALERT: High temperature {value}°C when threshold exceeded.",
         testCases: [
           { input: "[25.0, 28.5, 31.2, 29.9]", expected: "ALERT: High temperature 31.2°C" },
-          { input: "[20.0, 22.0, 24.0]",        expected: "No alert" },
+          { input: "[20.0, 22.0, 24.0]", expected: "No alert" },
         ],
         sampleCode: "def monitor(temps):\n    buffer = []\n    for t in temps:\n        buffer.append(t)\n        if len(buffer) > 10: buffer.pop(0)\n        if t > 30: print(f'ALERT: High temperature {t}°C')",
       },
@@ -248,298 +349,84 @@ const CHALLENGE_POOL = {
   },
 };
 
-function generateChallenge(domain, difficulty) {
+/** Curated-pool fallback (sync) */
+function generateChallengeFromPool(domain, difficulty) {
   const domainPool = CHALLENGE_POOL[domain] || CHALLENGE_POOL["General"];
-  const diffPool   = domainPool[difficulty] || domainPool["medium"] || Object.values(domainPool)[0];
-  const idx        = Math.floor(Math.random() * diffPool.length);
-  const template   = diffPool[idx];
+  const diffPool = domainPool[difficulty] || domainPool["medium"] || Object.values(domainPool)[0];
+  const idx = Math.floor(Math.random() * diffPool.length);
+  const template = diffPool[idx];
   return {
-    id:         `C_${Date.now()}`,
+    id: `C_${Date.now()}`,
     domain,
     difficulty,
     ...template,
     aiGenerated: true,
+    source: "curated_pool",
     generatedAt: new Date().toISOString(),
   };
 }
 
-// ─── Express App ─────────────────────────────────────────────────────────────
-const app = express();
-app.use(cors({ origin: "*" }));
-app.use(express.json({ limit: "5mb" }));
+/** Primary: OpenAI GPT-4o-mini. Fallback: curated pool on quota/rate-limit errors. */
+async function generateChallenge(domain, difficulty) {
+  try {
+    const prompt = `You are a competitive programming challenge designer.
+Generate a unique coding challenge with the following JSON structure (respond with ONLY valid JSON, no markdown):
+{
+  "problem": "<clear detailed problem statement>",
+  "constraints": "<constraints as a string>",
+  "inputFormat": "<input format>",
+  "outputFormat": "<output format>",
+  "testCases": [
+    { "input": "<example input>", "expected": "<expected output>" },
+    { "input": "<example input2>", "expected": "<expected output2>" }
+  ],
+  "sampleCode": "<starter code in Python with comments>"
+}
+Domain: ${domain}. Difficulty: ${difficulty}. Make it original and practical.`;
 
-// ─── Health ──────────────────────────────────────────────────────────────────
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// ─── Standalone Admin Panel ───────────────────────────────────────────────────
-app.get("/admin", (_req, res) => {
-  res.sendFile(path.join(__dirname, "admin.html"));
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  USERS / ASSESSMENT HISTORY
-// ═══════════════════════════════════════════════════════════════════════════════
-
-app.post("/api/users", (req, res) => {
-  const { name, email, score, level, skills, badge, assessmentCount, evaluatedAt } = req.body;
-  if (!name || score === undefined) return res.status(400).json({ error: "name and score required" });
-
-  const db    = readDB();
-  const exIdx = db.users.findIndex(u => u.name === name && u.email === email);
-  const hist  = { score: Number(score), level: level || "Beginner", badge: badge || "", evaluatedAt: evaluatedAt || new Date().toISOString() };
-
-  if (exIdx >= 0) {
-    const u = db.users[exIdx];
-    u.assessmentHistory = [...(u.assessmentHistory || []), hist];
-    u.score             = Number(score);
-    u.level             = level || u.level;
-    u.skills            = Array.isArray(skills) ? skills : u.skills;
-    u.badge             = badge || u.badge;
-    u.assessmentCount   = u.assessmentHistory.length;
-    u.updatedAt         = new Date().toISOString();
-    db.users[exIdx]     = u;
-  } else {
-    db.users.push({
-      id: `usr_${Date.now()}`, name, email: email || "",
-      score: Number(score), level: level || "Beginner",
-      skills: Array.isArray(skills) ? skills : [],
-      badge: badge || "", assessmentCount: 1,
-      assessmentHistory: [hist],
-      evaluatedAt: evaluatedAt || new Date().toISOString(),
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+      max_tokens: 800,
     });
-  }
-  writeDB(db);
-  console.log(`[DB] ${name} — score:${score}  history:${(db.users.find(u=>u.name===name)?.assessmentHistory||[]).length}`);
-  res.status(201).json({ success: true });
-});
 
-app.get("/api/users", (_req, res) => {
-  const db = readDB();
-  res.json({ users: [...db.users].sort((a, b) => b.score - a.score), total: db.users.length });
-});
+    const raw = completion.choices[0].message.content.trim();
+    const json = JSON.parse(raw.replace(/^```[\s\S]*?\n/, "").replace(/```$/, ""));
 
-app.get("/api/users/:id/history", (req, res) => {
-  const user = readDB().users.find(u => u.id === req.params.id);
-  if (!user) return res.status(404).json({ error: "Not found" });
-  res.json({ history: user.assessmentHistory || [], user: { name: user.name, email: user.email } });
-});
-
-app.delete("/api/users/:id", (req, res) => {
-  const db = readDB();
-  const before = db.users.length;
-  db.users = db.users.filter(u => u.id !== req.params.id);
-  if (db.users.length === before) return res.status(404).json({ error: "Not found" });
-  writeDB(db);
-  res.json({ success: true });
-});
-
-app.get("/api/leaderboard", (_req, res) => {
-  const ranked = [...readDB().users].sort((a, b) => b.score - a.score)
-    .map((u, i) => ({ rank: i+1, name: u.name, score: u.score, level: u.level, badge: u.badge, streak: u.assessmentCount||1 }));
-  res.json({ leaderboard: ranked });
-});
-
-app.get("/api/analytics", (_req, res) => {
-  const users = readDB().users;
-  if (!users.length) return res.json({ totalUsers:0, averageScore:0, topSkill:"N/A", weakestSkill:"N/A", averageCompletionTime:"N/A", scoreDistribution:{"0-50":0,"50-70":0,"70-90":0,"90+":0} });
-  const scores = users.map(u => u.score);
-  const avg = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
-  const freq = {}; users.forEach(u=>(u.skills||[]).forEach(s=>{freq[s]=(freq[s]||0)+1;}));
-  const se = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
-  const dist = {"0-50":0,"50-70":0,"70-90":0,"90+":0};
-  scores.forEach(s=>{ if(s<50)dist["0-50"]++; else if(s<70)dist["50-70"]++; else if(s<90)dist["70-90"]++; else dist["90+"]++; });
-  res.json({ totalUsers:users.length, averageScore:avg, topSkill:se[0]?.[0]||"N/A", weakestSkill:se[se.length-1]?.[0]||"N/A", averageCompletionTime:"~15 min", scoreDistribution:dist });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  HACKATHON AGENT APIs
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/** POST /api/hackathon/setup — Create a new hackathon */
-app.post("/api/hackathon/setup", (req, res) => {
-  const { title, theme, duration, difficulty, targetUsers, mode, inviteOnly, description } = req.body;
-  if (!title) return res.status(400).json({ error: "title required" });
-
-  const db = readDB();
-  let challenges = [];
-
-  // Auto-generate challenges if AI mode
-  if (mode === "AI_GENERATED") {
-    challenges = [
-      generateChallenge(theme || "General", difficulty || "medium"),
-    ];
-  }
-
-  const hackathon = {
-    id:           `H_${Date.now()}`,
-    title,
-    theme:        theme || "General",
-    duration:     duration || "48h",
-    difficulty:   difficulty || "medium",
-    targetUsers:  Array.isArray(targetUsers) ? targetUsers : [],
-    mode:         mode || "MANUAL",
-    inviteOnly:   !!inviteOnly,
-    description:  description || "",
-    status:       "active",
-    challenges,
-    participants: [],
-    createdAt:    new Date().toISOString(),
-    updatedAt:    new Date().toISOString(),
-  };
-
-  db.hackathons.push(hackathon);
-  writeDB(db);
-  console.log(`[Hackathon] Created: ${title} (${mode})`);
-  res.status(201).json({ success: true, hackathon });
-});
-
-/** POST /api/hackathon/generate-challenge — AI generate a challenge */
-app.post("/api/hackathon/generate-challenge", (req, res) => {
-  const { domain, difficulty, hackathonId } = req.body;
-  const challenge = generateChallenge(domain || "General", difficulty || "medium");
-
-  if (hackathonId) {
-    const db = readDB();
-    const idx = db.hackathons.findIndex(h => h.id === hackathonId);
-    if (idx >= 0) {
-      db.hackathons[idx].challenges.push(challenge);
-      db.hackathons[idx].updatedAt = new Date().toISOString();
-      writeDB(db);
+    console.log(`[OpenAI] Challenge generated via API (${domain}/${difficulty})`);
+    return {
+      id: `C_${Date.now()}`,
+      domain,
+      difficulty,
+      ...json,
+      aiGenerated: true,
+      source: "openai",
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (err) {
+    if (isQuotaError(err)) {
+      console.warn(`[OpenAI] Quota/rate-limit hit — falling back to curated pool. (${err.message})`);
+    } else {
+      console.error(`[OpenAI] Challenge generation error — falling back to curated pool.`, err.message);
     }
+    return generateChallengeFromPool(domain, difficulty);
   }
+}
 
-  res.json({ success: true, challenge });
-});
-
-/** GET /api/hackathons — List all hackathons */
-app.get("/api/hackathons", (_req, res) => {
-  const db = readDB();
-  res.json({ hackathons: db.hackathons || [], total: (db.hackathons||[]).length });
-});
-
-/** GET /api/hackathon/:id — Single hackathon */
-app.get("/api/hackathon/:id", (req, res) => {
-  const h = readDB().hackathons?.find(h => h.id === req.params.id);
-  if (!h) return res.status(404).json({ error: "Not found" });
-  res.json({ hackathon: h });
-});
-
-/** DELETE /api/hackathon/:id */
-app.delete("/api/hackathon/:id", (req, res) => {
-  const db = readDB();
-  const before = (db.hackathons||[]).length;
-  db.hackathons = (db.hackathons||[]).filter(h => h.id !== req.params.id);
-  if (db.hackathons.length === before) return res.status(404).json({ error: "Not found" });
-  writeDB(db);
-  res.json({ success: true });
-});
-
-/** PATCH /api/hackathon/:id/status — Update status */
-app.patch("/api/hackathon/:id/status", (req, res) => {
-  const db  = readDB();
-  const idx = (db.hackathons||[]).findIndex(h => h.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: "Not found" });
-  db.hackathons[idx].status    = req.body.status;
-  db.hackathons[idx].updatedAt = new Date().toISOString();
-  writeDB(db);
-  res.json({ success: true });
-});
-
-/** POST /api/hackathon/:id/join — User joins a hackathon */
-app.post("/api/hackathon/:id/join", (req, res) => {
-  const { name, email } = req.body;
-  if (!name) return res.status(400).json({ error: "name required" });
-
-  const db  = readDB();
-  const idx = (db.hackathons||[]).findIndex(h => h.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: "Hackathon not found" });
-
-  const h = db.hackathons[idx];
-  if (h.status !== "active") return res.status(400).json({ error: "Hackathon is not active" });
-
-  const alreadyJoined = h.participants.some(p => p.email === email || p.name === name);
-  if (alreadyJoined) return res.status(400).json({ error: "Already joined" });
-
-  h.participants.push({ name, email: email||"", joinedAt: new Date().toISOString() });
-  h.updatedAt = new Date().toISOString();
-  writeDB(db);
-  res.json({ success: true, message: `${name} joined ${h.title}` });
-});
-
-/** GET /api/hackathon/:id/participants */
-app.get("/api/hackathon/:id/participants", (req, res) => {
-  const h = readDB().hackathons?.find(h => h.id === req.params.id);
-  if (!h) return res.status(404).json({ error: "Not found" });
-  res.json({ participants: h.participants, total: h.participants.length });
-});
-
-/** POST /api/hackathon/submit — Submit code for a challenge */
-app.post("/api/hackathon/submit", (req, res) => {
-  const { userId, userName, userEmail, hackathonId, challengeId, code, language } = req.body;
-  if (!hackathonId || !challengeId || !code) return res.status(400).json({ error: "hackathonId, challengeId, code required" });
-
-  const db = readDB();
-  const sub = {
-    id:          `S_${Date.now()}`,
-    userId:      userId || `u_${Date.now()}`,
-    userName:    userName || "Anonymous",
-    userEmail:   userEmail || "",
-    hackathonId,
-    challengeId,
-    code,
-    language:    language || "python",
-    status:      "pending",
-    score:       null,
-    feedback:    null,
-    submittedAt: new Date().toISOString(),
-  };
-
-  db.submissions.push(sub);
-
-  // Auto-evaluate (simulated AI scoring)
-  const score    = evaluateCode(code, challengeId, db.hackathons);
-  sub.score      = score.score;
-  sub.feedback   = score.feedback;
-  sub.status     = "evaluated";
-  sub.evaluatedAt = new Date().toISOString();
-
-  db.submissions[db.submissions.length - 1] = sub;
-  writeDB(db);
-  res.status(201).json({ success: true, submission: sub });
-});
-
-/** POST /api/hackathon/evaluate — Re-evaluate a submission */
-app.post("/api/hackathon/evaluate", (req, res) => {
-  const { submissionId } = req.body;
-  const db  = readDB();
-  const idx = db.submissions.findIndex(s => s.id === submissionId);
-  if (idx < 0) return res.status(404).json({ error: "Submission not found" });
-
-  const score = evaluateCode(db.submissions[idx].code, db.submissions[idx].challengeId, db.hackathons);
-  db.submissions[idx].score     = score.score;
-  db.submissions[idx].feedback  = score.feedback;
-  db.submissions[idx].status    = "evaluated";
-  writeDB(db);
-  res.json({ success: true, score: score.score, feedback: score.feedback });
-});
-
-/** Simulated AI Code Evaluator */
-function evaluateCode(code, challengeId, hackathons) {
+/** Heuristic fallback evaluator (sync) */
+function evaluateCodeHeuristic(code) {
   if (!code || code.trim().length < 20) {
-    return { score: 0, feedback: "❌ No meaningful code submitted. Please attempt the problem." };
+    return { score: 0, feedback: "❌ No meaningful code submitted. Please attempt the problem.", source: "heuristic" };
   }
 
-  const len   = code.trim().length;
+  const len = code.trim().length;
   const lines = code.split("\n").filter(l => l.trim()).length;
 
-  // Heuristic scoring
   let score = 0;
   const feedbackParts = [];
 
-  if (len > 50)  { score += 20; feedbackParts.push("✅ Code has meaningful length"); }
+  if (len > 50) { score += 20; feedbackParts.push("✅ Code has meaningful length"); }
   if (lines > 3) { score += 10; feedbackParts.push("✅ Multiple lines of logic"); }
 
   const hasFunction = /def |function |=>/.test(code);
@@ -564,38 +451,445 @@ function evaluateCode(code, challengeId, hackathons) {
 
   if (score < 40) feedbackParts.push("💡 Tip: Add more logic — try to handle edge cases and return proper output.");
   if (!hasFunction) feedbackParts.push("💡 Tip: Wrap your logic in a function for better structure.");
-  if (!hasReturn)   feedbackParts.push("💡 Tip: Ensure your function returns the expected output.");
+  if (!hasReturn) feedbackParts.push("💡 Tip: Ensure your function returns the expected output.");
 
-  return { score, feedback: feedbackParts.join("\n") };
+  return { score, feedback: feedbackParts.join("\n"), source: "heuristic" };
 }
 
+/** Primary: OpenAI GPT-4o-mini. Fallback: heuristic on quota/rate-limit errors. */
+async function evaluateCode(code, challengeId, hackathons) {
+  if (!code || code.trim().length < 20) {
+    return { score: 0, feedback: "❌ No meaningful code submitted. Please attempt the problem.", source: "heuristic" };
+  }
+
+  // Try to find the challenge for context
+  let challengeContext = "";
+  if (challengeId && hackathons) {
+    for (const h of hackathons) {
+      const c = (h.challenges || []).find(c => c.id === challengeId);
+      if (c) { challengeContext = `\nChallenge: ${c.problem}\nConstraints: ${c.constraints}`; break; }
+    }
+  }
+
+  try {
+    const prompt = `You are an expert code reviewer for a competitive programming platform.
+Evaluate the following submitted code and respond with ONLY valid JSON (no markdown):
+{
+  "score": <integer 0-100>,
+  "feedback": "<detailed multi-line feedback with emojis, strengths and improvement tips>"
+}
+
+Scoring rubric:
+- Correctness & logic: 40 pts
+- Code quality & structure: 20 pts
+- Edge case handling: 20 pts
+- Efficiency: 10 pts
+- Comments & readability: 10 pts
+${challengeContext}
+
+Submitted Code:
+\`\`\`
+${code.slice(0, 3000)}
+\`\`\``;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 500,
+    });
+
+    const raw = completion.choices[0].message.content.trim();
+    const json = JSON.parse(raw.replace(/^```[\s\S]*?\n/, "").replace(/```$/, ""));
+
+    console.log(`[OpenAI] Code evaluated via API — score: ${json.score}`);
+    return {
+      score: Math.min(100, Math.max(0, Number(json.score) || 0)),
+      feedback: json.feedback || "Evaluation complete.",
+      source: "openai",
+    };
+  } catch (err) {
+    if (isQuotaError(err)) {
+      console.warn(`[OpenAI] Quota/rate-limit hit — falling back to heuristic evaluator. (${err.message})`);
+    } else {
+      console.error(`[OpenAI] Evaluation error — falling back to heuristic evaluator.`, err.message);
+    }
+    return evaluateCodeHeuristic(code);
+  }
+}
+
+// ─── Express App ─────────────────────────────────────────────────────────────
+const app = express();
+app.use(cors({ origin: "*" }));
+app.use(express.json({ limit: "5mb" }));
+
+// ─── Health ──────────────────────────────────────────────────────────────────
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), db: mongoose.connection.readyState === 1 ? "mongodb" : "disconnected" });
+});
+
+// ─── Standalone Admin Panel ───────────────────────────────────────────────────
+app.get("/admin", (_req, res) => {
+  const adminPath = path.join(__dirname, "admin.html");
+  fs.readFile(adminPath, "utf-8", (err, data) => {
+    if (err) {
+      console.error("[Admin] Could not read admin.html:", adminPath, err.message);
+      return res.status(500).send("Admin panel file not found: " + adminPath);
+    }
+    res.setHeader("Content-Type", "text/html");
+    res.send(data);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  USERS / ASSESSMENT HISTORY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.post("/api/users", async (req, res) => {
+  try {
+    const { name, email, score, level, skills, badge, assessmentCount, evaluatedAt } = req.body;
+    if (!name || score === undefined) return res.status(400).json({ error: "name and score required" });
+
+    const hist = {
+      score: Number(score),
+      level: level || "Beginner",
+      badge: badge || "",
+      evaluatedAt: evaluatedAt || new Date().toISOString(),
+    };
+
+    const existing = await User.findOne({ name, email: email || "" });
+    if (existing) {
+      existing.assessmentHistory.push(hist);
+      existing.score = Number(score);
+      existing.level = level || existing.level;
+      existing.skills = Array.isArray(skills) ? skills : existing.skills;
+      existing.badge = badge || existing.badge;
+      existing.assessmentCount = existing.assessmentHistory.length;
+      existing.updatedAt = new Date().toISOString();
+      await existing.save();
+      console.log(`[MongoDB] ${name} updated — score:${score} history:${existing.assessmentHistory.length}`);
+    } else {
+      await User.create({
+        id: `usr_${Date.now()}`,
+        name,
+        email: email || "",
+        score: Number(score),
+        level: level || "Beginner",
+        skills: Array.isArray(skills) ? skills : [],
+        badge: badge || "",
+        assessmentCount: 1,
+        assessmentHistory: [hist],
+        evaluatedAt: evaluatedAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      console.log(`[MongoDB] ${name} created — score:${score}`);
+    }
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error("[POST /api/users]", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/users", async (_req, res) => {
+  try {
+    const users = await User.find({}, { _id: 0, __v: 0 }).sort({ score: -1 }).lean();
+    res.json({ users, total: users.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/users/:id/history", async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.params.id }, { _id: 0, __v: 0 }).lean();
+    if (!user) return res.status(404).json({ error: "Not found" });
+    res.json({ history: user.assessmentHistory || [], user: { name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/users/:id", async (req, res) => {
+  try {
+    const result = await User.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/leaderboard", async (_req, res) => {
+  try {
+    const users = await User.find({}, { _id: 0, __v: 0 }).sort({ score: -1 }).lean();
+    const ranked = users.map((u, i) => ({
+      rank: i + 1,
+      name: u.name,
+      score: u.score,
+      level: u.level,
+      badge: u.badge,
+      streak: u.assessmentCount || 1,
+    }));
+    res.json({ leaderboard: ranked });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/analytics", async (_req, res) => {
+  try {
+    const users = await User.find({}, { _id: 0, __v: 0 }).lean();
+    if (!users.length) return res.json({ totalUsers: 0, averageScore: 0, topSkill: "N/A", weakestSkill: "N/A", averageCompletionTime: "N/A", scoreDistribution: { "0-50": 0, "50-70": 0, "70-90": 0, "90+": 0 } });
+
+    const scores = users.map(u => u.score);
+    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    const freq = {};
+    users.forEach(u => (u.skills || []).forEach(s => { freq[s] = (freq[s] || 0) + 1; }));
+    const se = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+    const dist = { "0-50": 0, "50-70": 0, "70-90": 0, "90+": 0 };
+    scores.forEach(s => { if (s < 50) dist["0-50"]++; else if (s < 70) dist["50-70"]++; else if (s < 90) dist["70-90"]++; else dist["90+"]++; });
+
+    res.json({ totalUsers: users.length, averageScore: avg, topSkill: se[0]?.[0] || "N/A", weakestSkill: se[se.length - 1]?.[0] || "N/A", averageCompletionTime: "~15 min", scoreDistribution: dist });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  HACKATHON AGENT APIs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** POST /api/hackathon/setup — Create a new hackathon */
+app.post("/api/hackathon/setup", async (req, res) => {
+  try {
+    const { title, theme, duration, difficulty, targetUsers, mode, inviteOnly, description } = req.body;
+    if (!title) return res.status(400).json({ error: "title required" });
+
+    let challenges = [];
+    if (mode === "AI_GENERATED") {
+      challenges = [await generateChallenge(theme || "General", difficulty || "medium")];
+    }
+
+    const hackathon = await Hackathon.create({
+      id: `H_${Date.now()}`,
+      title,
+      theme: theme || "General",
+      duration: duration || "48h",
+      difficulty: difficulty || "medium",
+      targetUsers: Array.isArray(targetUsers) ? targetUsers : [],
+      mode: mode || "MANUAL",
+      inviteOnly: !!inviteOnly,
+      description: description || "",
+      status: "active",
+      challenges,
+      participants: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    console.log(`[MongoDB] Hackathon created: ${title} (${mode})`);
+    res.status(201).json({ success: true, hackathon });
+  } catch (err) {
+    console.error("[POST /api/hackathon/setup]", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/hackathon/generate-challenge — AI generate a challenge */
+app.post("/api/hackathon/generate-challenge", async (req, res) => {
+  try {
+    const { domain, difficulty, hackathonId } = req.body;
+    const challenge = await generateChallenge(domain || "General", difficulty || "medium");
+
+    if (hackathonId) {
+      await Hackathon.updateOne(
+        { id: hackathonId },
+        { $push: { challenges: challenge }, $set: { updatedAt: new Date().toISOString() } }
+      );
+    }
+
+    res.json({ success: true, challenge });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/hackathons — List all hackathons */
+app.get("/api/hackathons", async (_req, res) => {
+  try {
+    const hackathons = await Hackathon.find({}, { _id: 0, __v: 0 }).lean();
+    res.json({ hackathons, total: hackathons.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/hackathon/:id — Single hackathon */
+app.get("/api/hackathon/:id", async (req, res) => {
+  try {
+    const h = await Hackathon.findOne({ id: req.params.id }, { _id: 0, __v: 0 }).lean();
+    if (!h) return res.status(404).json({ error: "Not found" });
+    res.json({ hackathon: h });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** DELETE /api/hackathon/:id */
+app.delete("/api/hackathon/:id", async (req, res) => {
+  try {
+    const result = await Hackathon.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** PATCH /api/hackathon/:id/status — Update status */
+app.patch("/api/hackathon/:id/status", async (req, res) => {
+  try {
+    const result = await Hackathon.updateOne(
+      { id: req.params.id },
+      { $set: { status: req.body.status, updatedAt: new Date().toISOString() } }
+    );
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/hackathon/:id/join — User joins a hackathon */
+app.post("/api/hackathon/:id/join", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name) return res.status(400).json({ error: "name required" });
+
+    const h = await Hackathon.findOne({ id: req.params.id });
+    if (!h) return res.status(404).json({ error: "Hackathon not found" });
+    if (h.status !== "active") return res.status(400).json({ error: "Hackathon is not active" });
+
+    const alreadyJoined = h.participants.some(p => p.email === email || p.name === name);
+    if (alreadyJoined) return res.status(400).json({ error: "Already joined" });
+
+    h.participants.push({ name, email: email || "", joinedAt: new Date().toISOString() });
+    h.updatedAt = new Date().toISOString();
+    await h.save();
+
+    res.json({ success: true, message: `${name} joined ${h.title}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/hackathon/:id/participants */
+app.get("/api/hackathon/:id/participants", async (req, res) => {
+  try {
+    const h = await Hackathon.findOne({ id: req.params.id }, { _id: 0, participants: 1 }).lean();
+    if (!h) return res.status(404).json({ error: "Not found" });
+    res.json({ participants: h.participants, total: h.participants.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/hackathon/submit — Submit code for a challenge */
+app.post("/api/hackathon/submit", async (req, res) => {
+  try {
+    const { userId, userName, userEmail, hackathonId, challengeId, code, language } = req.body;
+    if (!hackathonId || !challengeId || !code) return res.status(400).json({ error: "hackathonId, challengeId, code required" });
+
+    // Fetch hackathons for challenge context (for evaluateCode)
+    const allHackathons = await Hackathon.find({}, { _id: 0, challenges: 1 }).lean();
+
+    const evaluation = await evaluateCode(code, challengeId, allHackathons);
+
+    const sub = await Submission.create({
+      id: `S_${Date.now()}`,
+      userId: userId || `u_${Date.now()}`,
+      userName: userName || "Anonymous",
+      userEmail: userEmail || "",
+      hackathonId,
+      challengeId,
+      code,
+      language: language || "python",
+      status: "evaluated",
+      score: evaluation.score,
+      feedback: evaluation.feedback,
+      evaluationSource: evaluation.source,
+      submittedAt: new Date().toISOString(),
+      evaluatedAt: new Date().toISOString(),
+    });
+
+    res.status(201).json({ success: true, submission: sub });
+  } catch (err) {
+    console.error("[POST /api/hackathon/submit]", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/hackathon/evaluate — Re-evaluate a submission */
+app.post("/api/hackathon/evaluate", async (req, res) => {
+  try {
+    const { submissionId } = req.body;
+    const sub = await Submission.findOne({ id: submissionId });
+    if (!sub) return res.status(404).json({ error: "Submission not found" });
+
+    const allHackathons = await Hackathon.find({}, { _id: 0, challenges: 1 }).lean();
+    const evaluation = await evaluateCode(sub.code, sub.challengeId, allHackathons);
+
+    sub.score = evaluation.score;
+    sub.feedback = evaluation.feedback;
+    sub.evaluationSource = evaluation.source;
+    sub.status = "evaluated";
+    await sub.save();
+
+    res.json({ success: true, score: evaluation.score, feedback: evaluation.feedback, source: evaluation.source });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /** GET /api/hackathon/:id/submissions */
-app.get("/api/hackathon/:id/submissions", (req, res) => {
-  const subs = readDB().submissions.filter(s => s.hackathonId === req.params.id);
-  res.json({ submissions: subs, total: subs.length });
+app.get("/api/hackathon/:id/submissions", async (req, res) => {
+  try {
+    const subs = await Submission.find({ hackathonId: req.params.id }, { _id: 0, __v: 0 }).lean();
+    res.json({ submissions: subs, total: subs.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /** GET /api/hackathon/:id/leaderboard */
-app.get("/api/hackathon/:id/leaderboard", (req, res) => {
-  const subs = readDB().submissions
-    .filter(s => s.hackathonId === req.params.id && s.score !== null)
-    .sort((a, b) => (b.score||0) - (a.score||0));
+app.get("/api/hackathon/:id/leaderboard", async (req, res) => {
+  try {
+    const subs = await Submission.find(
+      { hackathonId: req.params.id, score: { $ne: null } },
+      { _id: 0, __v: 0 }
+    ).sort({ score: -1 }).lean();
 
-  // Best score per user
-  const seen = new Map();
-  subs.forEach(s => {
-    if (!seen.has(s.userName) || seen.get(s.userName).score < s.score) seen.set(s.userName, s);
-  });
+    // Best score per user
+    const seen = new Map();
+    subs.forEach(s => {
+      if (!seen.has(s.userName) || seen.get(s.userName).score < s.score) seen.set(s.userName, s);
+    });
 
-  const lb = [...seen.values()].sort((a,b) => b.score - a.score)
-    .map((s, i) => ({ rank: i+1, name: s.userName, score: s.score, language: s.language, submittedAt: s.submittedAt }));
+    const lb = [...seen.values()]
+      .sort((a, b) => b.score - a.score)
+      .map((s, i) => ({ rank: i + 1, name: s.userName, score: s.score, language: s.language, submittedAt: s.submittedAt }));
 
-  res.json({ leaderboard: lb });
+    res.json({ leaderboard: lb });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🚀 Mavericks Backend  →  http://localhost:${PORT}`);
   console.log(`   Admin Panel        →  http://localhost:${PORT}/admin`);
-  console.log(`   DB file            →  ${DB_FILE}\n`);
+  console.log(`   Database           →  MongoDB Atlas\n`);
 });

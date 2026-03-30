@@ -66,7 +66,7 @@ export const engagementAgent = {
     const badge = this.calculateBadge(score, resumeConfidence);
 
     // Fire-and-forget backend sync (non-blocking)
-    fetch("http://localhost:5000/api/leaderboard", {
+    fetch("/api/leaderboard", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, score, level, badge }),

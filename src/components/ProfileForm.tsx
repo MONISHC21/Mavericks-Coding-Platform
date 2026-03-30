@@ -5,7 +5,7 @@ import { FileText, User, Mail, Code, ArrowRight, Upload, CheckCircle2, Loader2, 
 import { Button } from "@/components/ui/button";
 import { usePlatformStore } from "@/lib/store";
 
-const API = "http://localhost:5000";
+const API = ""; // uses Vite proxy: /api → localhost:5000
 
 const SAMPLE_RESUME = `John Doe
 Senior Software Engineer

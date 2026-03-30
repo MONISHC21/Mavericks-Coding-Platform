@@ -19,7 +19,7 @@ import type {
 import { profileAgent, trackerAgent, orchestrator, eventBus } from "./agents";
 import { assessmentAgent } from "./agents/assessmentAgent";
 
-const API = "http://localhost:5000";
+const API = ""; // uses Vite proxy: /api → localhost:5000
 
 /** Save user result to real backend database */
 async function saveToBackend(

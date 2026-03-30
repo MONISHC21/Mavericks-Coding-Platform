@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { usePlatformStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-const API = "http://localhost:5000";
+const API = ""; // uses Vite proxy: /api → localhost:5000
 
 // ── Badge definitions ────────────────────────────────────────────────────────
 const ALL_BADGES = [
