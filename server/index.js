@@ -49,7 +49,7 @@ function isQuotaError(err) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
@@ -539,6 +539,16 @@ app.get("/admin", (_req, res) => {
     res.setHeader("Content-Type", "text/html");
     res.send(data);
   });
+});
+
+// ─── Root Route ──────────────────────────────────────────────────────────────
+app.get("/", (_req, res) => {
+  res.send("🚀 Mavericks Backend is LIVE!");
+});
+
+// ─── Health ───────────────────────────────────────────────────────────────────
+app.get("/health", (_req, res) => {
+  res.json({ status: "OK" });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
