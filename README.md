@@ -138,6 +138,12 @@ const result = {
 ```
 
 ---
+<img width="1355" height="721" alt="Image" src="https://github.com/user-attachments/assets/f25d5118-fac9-43f5-93a3-762d82f225a6" />
+<img width="1359" height="716" alt="Image" src="https://github.com/user-attachments/assets/07377380-ccaf-4aac-9f64-38a81095e591" />
+<img width="1357" height="716" alt="Image" src="https://github.com/user-attachments/assets/ae9e3792-7dc6-47b9-a976-83dc9e91fba4" />
+<img width="1360" height="721" alt="Image" src="https://github.com/user-attachments/assets/4cc3855d-1a03-41d1-8165-079adb3caba1" />
+
+---
 
 ## 🌍 Impact
 
@@ -172,8 +178,7 @@ This project is built for hackathon purposes and educational use.
 
 ## 👥 Team
 
-**Team Name:** Build4Nation
-**Institution:** SRM Institute of Science and Technology
+TEAM MEMBERS : M SHYAM SHARVAN ,C MONISH NANDHA BALAN , K KAVIBHARATHI
 
 ---
 
