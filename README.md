@@ -86,7 +86,7 @@ Resume Upload → Skill Extraction → Coding Assessment → AI Analysis → Lea
 
 ### Database
 
-* Local Storage / Mock Data (MVP)
+* Local Storage / MONGO DB (MVP)
 
 ---
 
